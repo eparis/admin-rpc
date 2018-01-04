@@ -3,6 +3,7 @@ package main
 
 import (
 	"bytes"
+	//"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -32,7 +33,11 @@ var (
 
 // The port the server is listening on.
 const (
-	port = ":12021"
+	port = 12021
+)
+
+var (
+	localAddr = fmt.Sprintf("localhost:%d", port)
 )
 
 type streamWriter struct {
@@ -152,6 +157,18 @@ func (s *server) RemoteShell(stream pb.RemoteCommand_RemoteShellServer) error {
 	return nil
 }
 
+// grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC
+// connections or otherHandler otherwise. Copied from cockroachdb.
+func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
+			grpcServer.ServeHTTP(w, r)
+		} else {
+			otherHandler.ServeHTTP(w, r)
+		}
+	})
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -192,28 +209,29 @@ func main() {
 	grpc_prometheus.Register(grpcServer)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, req *http.Request) {
-		io.Copy(w, strings.NewReader(pb.Swagger))
-	})
 
 	gwmux := runtime.NewServeMux()
-	err := pb.RegisterEchoServiceHandlerFromEndpoint(ctx, gwmux, "localhost:12021", nil)
+
+	dopts := []grpc.DialOption{
+		grpc.WithInsecure(),
+	}
+	err := pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, localAddr, dopts)
 	if err != nil {
-		fmt.Printf("serve: %v\n", err)
+		fmt.Printf("RegisterRemoteCommandHandlerFromEndpoint: %v\n", err)
 		return
 	}
-	mux.Handle("/", gwmux)
 
 	// Register Prometheus metrics handler.
-	mux.Handle("/metrics", promhttp.Hander())
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/", gwmux)
 
-	lis, err := net.Listen("tcp", port)
+	conn, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("Failed to listen %v", err)
 	}
 
 	srv := &http.Server{
-		Addr:    demoAddr,
+		Addr:    localAddr,
 		Handler: grpcHandlerFunc(grpcServer, mux),
 		//TLSConfig: &tls.Config{
 		//Certificates: []tls.Certificate{*demoKeyPair},
@@ -222,11 +240,11 @@ func main() {
 	}
 
 	fmt.Printf("grpc on port: %d\n", port)
-	if err := srv.Serve(tls.NewListener(conn, srv.TLSConfig)); err != nil {
+	if err := srv.Serve(conn); err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
 
-	//if err := s.Serve(lis); err != nil {
+	//if err := s.Serve(conn); err != nil {
 	//log.Fatalf("Failed to serve: %v", err)
 	//}
 }
