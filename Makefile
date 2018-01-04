@@ -1,9 +1,10 @@
-build: test
-	go install github.com/eparis/remote-shell/client
-	go install github.com/eparis/remote-shell/server
-
-test: protobuf
+test: build
 	go test ./...
+
+build: protobuf
+	go install github.com/eparis/remote-shell/server
+	go install github.com/eparis/remote-shell/client
+	go install github.com/eparis/remote-shell/streamclient
 
 clean:
 	-rm client/client

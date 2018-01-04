@@ -3,17 +3,17 @@ package accessrpc;
 
 import "google/api/annotations.proto";
 
-// Defines the service between client and server.
 service RemoteCommand {
-  // Sends a remote command from a client to a server.
+  // Send a single command to be executed
   rpc SendCommand (CommandRequest) returns (stream CommandReply) {
     option (google.api.http) = {
       post: "/v1/command"
       body: "*"
     };
   }
+  // Send a stream of commands to be executed
+  rpc RemoteShell (stream CommandRequest) returns (stream CommandReply) { }
 }
-
 
 // Request message
 message CommandRequest {

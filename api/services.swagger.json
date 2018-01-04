@@ -17,7 +17,7 @@
   "paths": {
     "/v1/command": {
       "post": {
-        "summary": "Sends a remote command from a client to a server.",
+        "summary": "Send a single command to be executed",
         "operationId": "SendCommand",
         "responses": {
           "200": {

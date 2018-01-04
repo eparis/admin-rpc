@@ -129,6 +129,26 @@ func (s *server) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_Send
 	return ExecuteCmdNamespace(cmdName, cmdArgs, stream)
 }
 
+func (s *server) RemoteShell(stream pb.RemoteCommand_RemoteShellServer) error {
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		pretty.Print(in)
+		cr := &pb.CommandReply{
+			Output: []byte("Got something..."),
+		}
+		if err := stream.Send(cr); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func main() {
 	logrusOpts := []grpc_logrus.Option{
 		grpc_logrus.WithDecider(func(methodFullName string, err error) bool {
