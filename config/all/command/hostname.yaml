@@ -1,0 +1,11 @@
+cmdName: "hostname"
+requiredFlags:
+permittedShortFlags:
+- I
+- A
+- s
+permittedLongFlags:
+  all-ip-addresses:
+  all-fqdns:
+  short:
+permittedNouns:

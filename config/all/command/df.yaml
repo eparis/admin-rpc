@@ -1,0 +1,6 @@
+cmdName: "df"
+requiredFlags:
+permittedShortFlags:
+- h
+permittedLongFlags:
+permittedNouns:

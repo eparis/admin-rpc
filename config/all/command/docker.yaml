@@ -1,0 +1,22 @@
+cmdName: "docker"
+requiredFlags:
+permittedShortFlags:
+  - a
+  - q
+permittedLongFlags:
+  digests:
+  - "^true$"
+  - "^false$"
+  format:
+  - "^.*$"
+  filter:
+  - "^.*$"
+  no-stream:
+permittedNouns:
+  - version
+  - info
+  - ps
+  - stats
+  - images
+
+

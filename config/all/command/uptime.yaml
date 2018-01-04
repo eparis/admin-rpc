@@ -1,0 +1,13 @@
+cmdName: "uptime"
+requiredFlags:
+permittedShortFlags:
+  - p
+  - h
+  - s
+  - V
+permittedLongFlags:
+  pretty:
+  help:
+  since:
+  version:
+permittedNouns:

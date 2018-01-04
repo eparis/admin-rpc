@@ -1,0 +1,8 @@
+cmdName: "iostat"
+requiredFlags:
+permittedShortFlags:
+- x
+- y
+permittedLongFlags:
+permittedNouns:
+- "^[[:digit:]]+$"

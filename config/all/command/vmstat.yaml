@@ -1,0 +1,8 @@
+cmdName: "vmstat"
+requiredFlags:
+permittedShortFlags:
+  - w
+permittedLongFlags:
+permittedNouns:
+  # This would be better if we could force 2 digits
+  - "^[[:digit:]]+$"

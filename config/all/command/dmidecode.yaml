@@ -1,0 +1,5 @@
+cmdName: "dmidecode"
+requiredFlags:
+permittedShortFlags:
+permittedLongFlags:
+permittedNouns:

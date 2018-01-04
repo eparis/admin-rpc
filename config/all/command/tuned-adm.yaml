@@ -1,0 +1,8 @@
+cmdName: "tuned-adm"
+requiredFlags:
+permittedShortFlags:
+permittedLongFlags:
+permittedNouns:
+  - list
+  - active
+  - verify

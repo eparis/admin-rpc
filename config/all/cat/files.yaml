@@ -1,0 +1,10 @@
+files:
+- /proc/cpuinfo
+- /proc/meminfo
+- /proc/vmstat
+- /proc/interrupts
+- /proc/slabinfo
+- /proc/cmdline
+- /etc/origin/node/node-config.yaml
+- /etc/etcd/etcd.conf
+- /proc/softirqs

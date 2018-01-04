@@ -1,0 +1,12 @@
+cmdName: "mpstat"
+requiredFlags:
+permittedShortFlags:
+- P
+permittedLongFlags:
+permittedNouns:
+# This would be better if mpstat knew that -P took arguments :-(
+- "^ALL$"
+- "^ON$"
+- "^([[:digit:]]+,?-?)+"
+# This would be better if we could force it to require 2 digits...
+- "^[[:digit:]]+$"

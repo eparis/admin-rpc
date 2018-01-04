@@ -1,0 +1,8 @@
+cmdName: "ethtool"
+requiredFlags:
+permittedShortFlags:
+- i
+permittedLongFlags:
+permittedNouns:
+- '^eth[[:digit:]]$'
+- '^enp[[:xdigit:]]s[[:xdigit:]]+$'

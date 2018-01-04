@@ -1,0 +1,6 @@
+cmdName: "lsblk"
+requiredFlags:
+permittedShortFlags:
+permittedLongFlags:
+permittedNouns:
+- "^.*$"

@@ -1,0 +1,9 @@
+cmdName: "rpm"
+requiredFlags:
+  - q
+permittedShortFlags:
+  - q
+  - a
+permittedLongFlags:
+permittedNouns:
+  - "^.*$"

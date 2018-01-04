@@ -1,0 +1,5 @@
+cmdName: "lscpu"
+requiredFlags:
+permittedShortFlags:
+permittedLongFlags:
+permittedNouns:

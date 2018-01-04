@@ -1,6 +1,6 @@
 build: test
-	cd client; go build
-	cd server; go build
+	go install github.com/eparis/remote-shell/client
+	go install github.com/eparis/remote-shell/server
 
 test: protobuf
 	go test ./...
@@ -13,5 +13,18 @@ generate:
 	go generate github.com/eparis/remote-shell/...
 
 protobuf: generate
-	protoc services.proto --go_out=plugins=grpc:.
-
+	protoc -I/usr/local/include -I. \
+		-I${GOPATH}/src \
+		-I${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
+		--go_out=plugins=grpc:. \
+		api/services.proto
+	protoc -I/usr/local/include -I. \
+		-I${GOPATH}/src \
+		-I${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
+		--grpc-gateway_out=logtostderr=true:. \
+		api/services.proto
+	protoc -I/usr/local/include -I. \
+		-I${GOPATH}/src \
+		-I${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
+		--swagger_out=logtostderr=true:. \
+		api/services.proto

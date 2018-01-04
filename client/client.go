@@ -4,11 +4,13 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
 
-	pb "github.com/eparis/remote-shell"
+	pb "github.com/eparis/remote-shell/api"
+	"github.com/kr/pretty"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -17,15 +19,15 @@ const (
 	port = ":12021"
 )
 
+var (
+	_ = pretty.Print
+)
+
 func main() {
 	// Read in the user's command.
 	r := bufio.NewReader(os.Stdin)
 
-	// Read the server address
-	fmt.Print("Please specify the server IP: ")
-	address, _ := r.ReadString('\n')
-	address = strings.TrimSpace(address)
-	address = address + port
+	address := "127.0.0.1" + port
 
 	// Set up a connection to the server.
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
@@ -63,12 +65,24 @@ func main() {
 		}
 
 		// Gets the response of the shell comm and from the server.
-		res, err := c.SendCommand(context.Background(), &pb.CommandRequest{CmdName: cmdName, CmdArgs: cmdArgs})
-
+		req := &pb.CommandRequest{
+			CmdName: cmdName,
+			CmdArgs: cmdArgs,
+		}
+		stream, err := c.SendCommand(context.Background(), req)
 		if err != nil {
 			log.Fatalf("Command failed: %v", err)
 		}
 
-		log.Printf("    %s", res.Output)
+		for {
+			res, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatalf("%v.SendCommand(_) = _, %v", c, err)
+			}
+			log.Printf("    %s", res.Output)
+		}
 	}
 }

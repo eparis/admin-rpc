@@ -1,0 +1,9 @@
+cmdName: "iptables-save"
+requiredFlags:
+permittedShortFlags:
+  - c
+permittedLongFlags:
+  counters:
+  table:
+    - "^[[:alpha:]]+$"
+permittedNouns:

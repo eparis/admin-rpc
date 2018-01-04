@@ -1,0 +1,25 @@
+cmdName: "uname"
+requiredFlags:
+permittedShortFlags:
+  - a
+  - s
+  - n
+  - r
+  - v
+  - m
+  - p
+  - i
+  - o
+permittedLongFlags:
+  all:
+  kernel-name:
+  nodename:
+  kernel-release:
+  kernel-version:
+  machine:
+  processor:
+  hardware-platform:
+  operation-system:
+  help:
+  version:
+permittedNouns:

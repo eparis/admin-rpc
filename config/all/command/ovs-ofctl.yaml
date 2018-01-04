@@ -1,0 +1,10 @@
+cmdName: "ovs-ofctl"
+requiredFlags:
+permittedShortFlags:
+  - O
+permittedLongFlags:
+permittedNouns:
+  - dump-flows
+  - OpenFlow13
+  - OpenFlow14
+  - "^br0$"

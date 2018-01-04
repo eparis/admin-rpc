@@ -1,0 +1,16 @@
+cmdName: "pidstat"
+requiredFlags:
+permittedShortFlags:
+  - l
+  - w
+  - u
+  - d
+  - r
+  - t
+  - h
+  - p
+permittedLongFlags:
+permittedNouns:
+  - "^[[:digit:]]+$"
+  - "^ALL$"
+

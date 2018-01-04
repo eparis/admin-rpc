@@ -1,0 +1,54 @@
+#type Command struct {
+#        CmdName        string              `json:"cmdName" yaml:"cmdName"`
+#        Required       []string            `json:"requiredFlags,omitempty" yaml:"requiredFlags,omitempty"`
+#        PermittedShort []string            `json:"permittedShortFlags,omitempty" yaml:"permittedShortFlags,omitempty"`
+#        PermittedLong  map[string][]string `json:"permittedLongFlags,omitempty" yaml:"permittedLongFlags,omitempty"`
+#        PermittedNoun  []string            `json:"permittedNouns,omitempty" yaml:"permittedNouns,omitempty"`
+#}
+
+# This is both the command the user would enter on the client cmdline and the
+# command executed on the server.
+cmdName: "ENTER_COMMAND_TO_RUN"
+
+# requiredFlags must be set on the command line.
+# This means that `--someRequiredFlag` and `-q` must be set.
+# If you put something in required, you MUST put it in permitted*
+requiredFlags:
+- "someRequiredFlag"
+- "q"
+
+# permittedShortFlags can take no arguments. These flags are only of
+# the form `-a`. If the user did `--a` we will check the permittedLongFlags
+#
+# In this example any or all of `-q`, `-a`, and `-f` may be set
+# It is perfectly valid for a user to do `-qa` or `-q -af`
+#
+# `-f=FILENAME`  # Fail because of =
+# `-fFILENAME`   # parsed as series of short flags: f, F, I, L, E, ...
+# `-f FILENAME`  # parsed as 1 short flags "f" and 1 unrelated noun: "FILENAME"
+permittedShortFlags:
+- "q"
+- "a"
+- "f"
+
+# Flags that use --flagName. They can take argument ONLY using the form:
+# `--flag=value`
+# If you use on the command line:
+# `--flag value`
+# It will parse as `--flag` with no value and an unrelated noun `value`
+permittedLongFlags:
+  # This will allow `--someRequiredFlag=someRequiredValue` or `--someRequiredFlag=1111someUnanchoredValue1111`
+  someRequiredFlag:
+  - "^someRequiredValue$"
+  - "someUnanchoredValue"
+  # This will allow `--someFlagWithNoArgs` but will not allow `--someFlagWithNoArgs=arg`
+  someFlagWithNoArg:
+  # This will allow `--someFlagWithAnyArg=arg` and will allow `--someFlagWithAnyArg`
+  someFlagWithAnyArg:
+  - "^.*$"
+
+#  This means that the non-flag `hello` or `AAAgoodbyeAAA`  would be allowed
+#  In the permittedShortFlags example about `FILENAME` you would need to allow it here.
+permittedNouns:
+- "^hello$"
+- "goodbye"

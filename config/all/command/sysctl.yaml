@@ -1,0 +1,9 @@
+cmdName: "sysctl"
+requiredFlags:
+permittedShortFlags:
+  - a
+permittedLongFlags:
+  all:
+permittedNouns:
+  # super important this is ^$ anchored. If they can slip in an = they can change values!
+  - "^([0-9A-Za-z._]+)+$"

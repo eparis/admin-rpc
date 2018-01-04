@@ -1,0 +1,12 @@
+cmdName: "ping"
+requiredFlags:
+  - c
+permittedShortFlags:
+  - c
+  - n
+  - I
+  - s
+permittedLongFlags:
+permittedNouns:
+  - ^[a-zA-Z0-9.-]+$
+

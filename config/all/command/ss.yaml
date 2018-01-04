@@ -1,0 +1,37 @@
+cmdName: "ss"
+requiredFlags:
+permittedShortFlags:
+  - H
+  - n
+  - a
+  - l
+  - o
+  - e
+  - m
+  - p
+  - i
+  - s
+  - Z
+  - z
+  - "4"
+  - "6"
+  - "0"
+  - t
+  - u
+  - d
+  - w
+permittedLongFlags:
+  no-header:
+  bpf:
+  raw:
+  tcp:
+  udp:
+  dccp:
+  sctp:
+  family:
+    - "^unix$"
+    - "^inet$"
+    - "^inet6$"
+    - "^link$"
+    - "^netlink$"
+permittedNouns:

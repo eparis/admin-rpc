@@ -1,0 +1,10 @@
+cmdName: "ps"
+requiredFlags:
+permittedShortFlags:
+- a
+- u
+- x
+- e
+- f
+permittedLongFlags:
+permittedNouns:

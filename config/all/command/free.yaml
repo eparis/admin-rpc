@@ -1,0 +1,8 @@
+cmdName: "free"
+requiredFlags:
+permittedShortFlags:
+- h
+- m
+- w
+permittedLongFlags:
+permittedNouns:

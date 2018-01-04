@@ -1,0 +1,15 @@
+cmdName: "systemd-cgls"
+requiredFlags:
+permittedShortFlags:
+  - l
+  - k
+permittedLongFlags:
+  all:
+  full:
+  unit:
+    - "^.*$"
+  user-unit:
+    - "^.*$"
+  machine:
+    - "^.*$"
+permittedNouns:

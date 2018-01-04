@@ -1,0 +1,27 @@
+syntax = "proto3";
+package accessrpc;
+
+import "google/api/annotations.proto";
+
+// Defines the service between client and server.
+service RemoteCommand {
+  // Sends a remote command from a client to a server.
+  rpc SendCommand (CommandRequest) returns (stream CommandReply) {
+    option (google.api.http) = {
+      post: "/v1/command"
+      body: "*"
+    };
+  }
+}
+
+
+// Request message
+message CommandRequest {
+  string cmdName = 1;
+  repeated string cmdArgs = 2;
+}
+
+// Response message
+message CommandReply {
+  bytes output = 1;
+}

@@ -1,0 +1,29 @@
+cmdName: "pstree"
+requiredFlags:
+permittedShortFlags:
+- a
+- g
+- l
+- n
+- p
+- s
+- S
+- t
+- T
+- u
+- Z
+permittedLongFlags:
+  arguments:
+  show-pgids:
+  long:
+  numeric-sort:
+  ns-sort:
+  - "^(ipc)|(mnt)|(net)|(pid)|(user)|(uts)$"
+  show-parents:
+  ns-changes:
+  thread-names:
+  hide-threads:
+  uid-changes:
+  security-context:
+permittedNouns:
+- "^[[:alnum:]]+$"

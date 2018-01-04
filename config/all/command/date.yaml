@@ -1,0 +1,12 @@
+cmdName: "date"
+
+requiredFlags:
+permittedShortFlags:
+- u
+- R
+permittedLongFlags:
+  utc:
+  universal:
+  rfc-3339:
+  rfc-email:
+permittedNouns:
