@@ -3,21 +3,25 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 
 	pb "github.com/eparis/remote-shell/api"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -138,11 +142,10 @@ func (s *server) RemoteShell(stream pb.RemoteCommand_RemoteShellServer) error {
 		if err != nil {
 			return err
 		}
-		pretty.Print(in)
-		cr := &pb.CommandReply{
-			Output: []byte("Got something..."),
-		}
-		if err := stream.Send(cr); err != nil {
+		cmdName := in.CmdName
+		cmdArgs := in.CmdArgs
+
+		if err := ExecuteCmdNamespace(cmdName, cmdArgs, stream); err != nil {
 			return err
 		}
 	}
@@ -150,6 +153,8 @@ func (s *server) RemoteShell(stream pb.RemoteCommand_RemoteShellServer) error {
 }
 
 func main() {
+	ctx := context.Background()
+
 	logrusOpts := []grpc_logrus.Option{
 		grpc_logrus.WithDecider(func(methodFullName string, err error) bool {
 			// will not log gRPC calls if it was a call to healthcheck and no error was raised
@@ -174,28 +179,54 @@ func main() {
 			grpc_prometheus.UnaryServerInterceptor,
 		),
 	}
-
 	// Initializes the gRPC server.
-	s := grpc.NewServer(serverOpts...)
+	grpcServer := grpc.NewServer(serverOpts...)
 
 	// Register the server with gRPC.
-	pb.RegisterRemoteCommandServer(s, &server{})
+	pb.RegisterRemoteCommandServer(grpcServer, &server{})
 
 	// Register reflection service on gRPC server.
-	reflection.Register(s)
+	reflection.Register(grpcServer)
 
 	// After all your registrations, make sure all of the Prometheus metrics are initialized.
-	grpc_prometheus.Register(s)
+	grpc_prometheus.Register(grpcServer)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/swagger.json", func(w http.ResponseWriter, req *http.Request) {
+		io.Copy(w, strings.NewReader(pb.Swagger))
+	})
+
+	gwmux := runtime.NewServeMux()
+	err := pb.RegisterEchoServiceHandlerFromEndpoint(ctx, gwmux, "localhost:12021", nil)
+	if err != nil {
+		fmt.Printf("serve: %v\n", err)
+		return
+	}
+	mux.Handle("/", gwmux)
 
 	// Register Prometheus metrics handler.
-	http.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics", promhttp.Hander())
 
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("Failed to listen %v", err)
 	}
 
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+	srv := &http.Server{
+		Addr:    demoAddr,
+		Handler: grpcHandlerFunc(grpcServer, mux),
+		//TLSConfig: &tls.Config{
+		//Certificates: []tls.Certificate{*demoKeyPair},
+		//NextProtos:   []string{"h2"},
+		//},
 	}
+
+	fmt.Printf("grpc on port: %d\n", port)
+	if err := srv.Serve(tls.NewListener(conn, srv.TLSConfig)); err != nil {
+		log.Fatal("ListenAndServe: ", err)
+	}
+
+	//if err := s.Serve(lis); err != nil {
+	//log.Fatalf("Failed to serve: %v", err)
+	//}
 }
