@@ -3,7 +3,7 @@ package main
 
 import (
 	"bytes"
-	//"crypto/tls"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -15,6 +15,7 @@ import (
 
 	pb "github.com/eparis/remote-shell/api"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -24,11 +25,19 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	//"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	authnv1 "k8s.io/api/authentication/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
-	_ = pretty.Print
+	_          = pretty.Print
+	kubeConfig *rest.Config
 )
 
 // The port the server is listening on.
@@ -157,11 +166,53 @@ func (s *server) RemoteShell(stream pb.RemoteCommand_RemoteShellServer) error {
 	return nil
 }
 
+func parseToken(token string) (struct{}, error) {
+	clientset, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return struct{}{}, err
+	}
+	sar := &authnv1.TokenReview{
+		Spec: authnv1.TokenReviewSpec{
+			Token: token,
+		},
+	}
+	pretty.Print(sar)
+	//sar.Spec.Token = token
+	sar, err = clientset.AuthenticationV1().TokenReviews().Create(sar)
+	if err != nil {
+		return struct{}{}, err
+	}
+	pretty.Print(sar)
+
+	return struct{}{}, nil
+}
+
+func userClaimFromToken(struct{}) string {
+	return "foobar"
+}
+
+func exampleAuthFunc(ctx context.Context) (context.Context, error) {
+	token, err := grpc_auth.AuthFromMD(ctx, "bearer")
+	if err != nil {
+		return nil, err
+	}
+	tokenInfo, err := parseToken(token)
+	if err != nil {
+		return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token: %v", err)
+	}
+	grpc_ctxtags.Extract(ctx).Set("auth.sub", userClaimFromToken(tokenInfo))
+	newCtx := context.WithValue(ctx, "tokenInfo", tokenInfo)
+	fmt.Printf("token: %s\n", token)
+	return newCtx, nil
+}
+
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC
 // connections or otherHandler otherwise. Copied from cockroachdb.
 func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
+		proto := r.ProtoMajor
+		contentType := r.Header.Get("Content-Type")
+		if proto == 2 && strings.Contains(contentType, "application/grpc") {
 			grpcServer.ServeHTTP(w, r)
 		} else {
 			otherHandler.ServeHTTP(w, r)
@@ -170,6 +221,12 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 }
 
 func main() {
+	config, err := clientcmd.BuildConfigFromFlags("", "/home/eparis/.kube/config")
+	if err != nil {
+		log.Fatal("Unable to load kubeconfig: %v\n", err)
+	}
+	kubeConfig = config
+
 	ctx := context.Background()
 
 	logrusOpts := []grpc_logrus.Option{
@@ -185,15 +242,18 @@ func main() {
 	}
 
 	serverOpts := []grpc.ServerOption{
+		grpc.Creds(credentials.NewClientTLSFromCert(demoCertPool, localAddr)),
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(),
 			grpc_logrus.StreamServerInterceptor(logrus.NewEntry(logrus.New()), logrusOpts...),
 			grpc_prometheus.StreamServerInterceptor,
+			grpc_auth.StreamServerInterceptor(exampleAuthFunc),
 		),
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(),
 			grpc_logrus.UnaryServerInterceptor(logrus.NewEntry(logrus.New()), logrusOpts...),
 			grpc_prometheus.UnaryServerInterceptor,
+			grpc_auth.UnaryServerInterceptor(exampleAuthFunc),
 		),
 	}
 	// Initializes the gRPC server.
@@ -212,13 +272,17 @@ func main() {
 
 	gwmux := runtime.NewServeMux()
 
+	dcreds := credentials.NewTLS(&tls.Config{
+		ServerName: localAddr,
+		RootCAs:    demoCertPool,
+	})
 	dopts := []grpc.DialOption{
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(dcreds),
 	}
-	err := pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, localAddr, dopts)
+
+	err = pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, "localhost:12021", dopts)
 	if err != nil {
-		fmt.Printf("RegisterRemoteCommandHandlerFromEndpoint: %v\n", err)
-		return
+		log.Fatal("RegisterRemoteCommandHandlerFromEndpoint: %v\n", err)
 	}
 
 	// Register Prometheus metrics handler.
@@ -233,18 +297,13 @@ func main() {
 	srv := &http.Server{
 		Addr:    localAddr,
 		Handler: grpcHandlerFunc(grpcServer, mux),
-		//TLSConfig: &tls.Config{
-		//Certificates: []tls.Certificate{*demoKeyPair},
-		//NextProtos:   []string{"h2"},
-		//},
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{*demoKeyPair},
+			NextProtos:   []string{"h2"},
+		},
 	}
 
-	fmt.Printf("grpc on port: %d\n", port)
-	if err := srv.Serve(conn); err != nil {
+	if err := srv.Serve(tls.NewListener(conn, srv.TLSConfig)); err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
-
-	//if err := s.Serve(conn); err != nil {
-	//log.Fatalf("Failed to serve: %v", err)
-	//}
 }

@@ -10,27 +10,47 @@ import (
 	"strings"
 
 	pb "github.com/eparis/remote-shell/api"
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/kr/pretty"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
-	port = ":12021"
+	port = 12021
 )
 
 var (
-	_ = pretty.Print
+	_         = pretty.Print
+	localAddr = fmt.Sprintf("localhost:%d", port)
 )
 
+func attachToken(ctx context.Context, token string) context.Context {
+	md := metadata.Pairs("authorization", fmt.Sprintf("bearer %s", token))
+	return metautils.NiceMD(md).ToOutgoing(ctx)
+}
+
 func main() {
+	config, err := clientcmd.BuildConfigFromFlags("", "/home/eparis/.kube/config")
+	if err != nil {
+		log.Fatal("Unable to load kubeconfig: %v\n", err)
+	}
+	token := config.BearerToken
+	fmt.Printf("%s\n", token)
 	// Read in the user's command.
 	r := bufio.NewReader(os.Stdin)
 
-	address := "127.0.0.1" + port
-
+	creds, err := credentials.NewClientTLSFromFile("certs/CA.pem", localAddr)
+	if err != nil {
+		log.Fatalf("Failed to create TLS credentials %v", err)
+	}
+	dopts := []grpc.DialOption{grpc.WithDefaultCallOptions()}
+	dopts = append(dopts, grpc.WithTransportCredentials(creds))
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(address, grpc.WithInsecure())
+	conn, err := grpc.Dial(localAddr, dopts...)
 
 	if err != nil {
 		log.Fatalf("Could not connect: %v", err)
@@ -42,7 +62,7 @@ func main() {
 	// Create the client
 	c := pb.NewRemoteCommandClient(conn)
 
-	fmt.Printf("\nYou have successfully connected to %s! To disconnect, hit ctrl+c or type exit.\n", address)
+	fmt.Printf("\nYou have successfully connected to %s! To disconnect, hit ctrl+c or type exit.\n", localAddr)
 
 	// Keep connection alive until ctrl+c or exit is entered.
 	for true {
@@ -69,7 +89,9 @@ func main() {
 			CmdName: cmdName,
 			CmdArgs: cmdArgs,
 		}
-		stream, err := c.SendCommand(context.Background(), req)
+		ctx := context.Background()
+		ctx = attachToken(ctx, token)
+		stream, err := c.SendCommand(ctx, req)
 		if err != nil {
 			log.Fatalf("Command failed: %v", err)
 		}
