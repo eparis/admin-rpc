@@ -40,9 +40,6 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   filepath.Base(os.Args[0]),
 	Short: "A REST API client which provides role based operational access to machines",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return doIt(cmd, args)
-	},
 }
 
 func init() {

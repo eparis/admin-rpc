@@ -2,12 +2,9 @@
 package cmd
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"log"
-	"os"
-	"strings"
 
 	pb "github.com/eparis/remote-shell/api"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
@@ -24,19 +21,30 @@ var (
 	_ = pretty.Print
 )
 
+func init() {
+	// runCmd represents the base command when called without any subcommands
+	runCmd := &cobra.Command{
+		Use:   "run",
+		Short: "A REST API client which provides role based operational access to machines",
+		RunE:  doRun,
+	}
+	rootCmd.AddCommand(runCmd)
+}
+
 func attachToken(ctx context.Context, token string) context.Context {
 	md := metadata.Pairs("authorization", fmt.Sprintf("bearer %s", token))
 	return metautils.NiceMD(md).ToOutgoing(ctx)
 }
 
-func doIt(cmd *cobra.Command, args []string) error {
+func doRun(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("no command to execute prodived")
+	}
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile)
 	if err != nil {
 		log.Fatal("Unable to load kubeconfig: %v\n", err)
 	}
 	token := config.BearerToken
-	// Read in the user's command.
-	r := bufio.NewReader(os.Stdin)
 
 	creds, err := credentials.NewClientTLSFromFile("certs/CA.pem", serverAddr)
 	if err != nil {
@@ -57,50 +65,30 @@ func doIt(cmd *cobra.Command, args []string) error {
 	// Create the client
 	c := pb.NewRemoteCommandClient(conn)
 
-	fmt.Printf("\nYou have successfully connected to %s! To disconnect, hit ctrl+c or type exit.\n", serverAddr)
+	cmdName := args[0]
+	args = args[1:]
 
-	// Keep connection alive until ctrl+c or exit is entered.
-	for true {
-		fmt.Print("$ ")
-		tCmd, _ := r.ReadString('\n')
+	// Gets the response of the shell comm and from the server.
+	req := &pb.CommandRequest{
+		CmdName: cmdName,
+		CmdArgs: args,
+	}
+	ctx := context.Background()
+	ctx = attachToken(ctx, token)
+	stream, err := c.SendCommand(ctx, req)
+	if err != nil {
+		log.Fatalf("Command failed: %v", err)
+	}
 
-		// This strips off any trailing whitespace/carriage returns.
-		tCmd = strings.TrimSpace(tCmd)
-		tCmd2 := strings.Split(tCmd, " ")
-
-		// Parse their input.
-		cmdName := tCmd2[0]
-
-		//cmdArgs := []string{}
-		cmdArgs := tCmd2[1:]
-
-		// Close the connection if the user enters exit.
-		if cmdName == "exit" {
-			break
-		}
-
-		// Gets the response of the shell comm and from the server.
-		req := &pb.CommandRequest{
-			CmdName: cmdName,
-			CmdArgs: cmdArgs,
-		}
-		ctx := context.Background()
-		ctx = attachToken(ctx, token)
-		stream, err := c.SendCommand(ctx, req)
+	for {
+		res, err := stream.Recv()
 		if err != nil {
-			log.Fatalf("Command failed: %v", err)
-		}
-
-		for {
-			res, err := stream.Recv()
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				log.Fatalf("%v.SendCommand(_) = _, %v", c, err)
+			if err == io.EOF {
+				break
 			}
-			fmt.Printf("%s", res.Output)
+			log.Fatalf("%v.SendCommand(_) = _, %v", c, err)
 		}
+		fmt.Printf("%s", res.Output)
 	}
 	return nil
 }
