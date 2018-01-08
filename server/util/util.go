@@ -3,24 +3,21 @@ package util
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
-
-	pb "github.com/eparis/remote-shell/api"
 )
 
-type streamWriter struct {
-	stream pb.RemoteCommand_SendCommandServer
+type flushWriter struct {
+	w http.ResponseWriter
 }
 
-func (sw streamWriter) Write(p []byte) (int, error) {
-	cr := &pb.CommandReply{
-		Output: p,
+func (fw flushWriter) Write(p []byte) (int, error) {
+	n, err := fw.w.Write(p)
+	if f, ok := fw.w.(http.Flusher); ok {
+		f.Flush()
 	}
-	if err := sw.stream.Send(cr); err != nil {
-		return 0, err
-	}
-	return len(p), nil
+	return n, err
 }
 
 var (
@@ -104,7 +101,10 @@ func (n Namespaces) args() []string {
 	return args
 }
 
-func ExecuteCmdNamespace(cmdName string, args []string, ns Namespaces, stream pb.RemoteCommand_SendCommandServer) error {
+func ExecuteCmdNamespace(w http.ResponseWriter, cmdName string, args []string, ns Namespaces) error {
+
+	fw := flushWriter{w}
+
 	outPipe, pw, err := os.Pipe()
 	if err != nil {
 		return err
@@ -116,9 +116,9 @@ func ExecuteCmdNamespace(cmdName string, args []string, ns Namespaces, stream pb
 	cmd.Stdout = pw
 	cmd.Stderr = pw
 
-	if err := cmd.Start(); err != nil {
-		return err
-	}
+	w.Header().Set("Content-Type", "text/plain")
+
+	cmd.Start()
 
 	finished := make(chan bool)
 
@@ -129,12 +129,13 @@ func ExecuteCmdNamespace(cmdName string, args []string, ns Namespaces, stream pb
 		pw.Close()
 	}()
 
-	// If the client closes the stream mark that we are finished so we may
-	// stop the exec early if needed.
+	// If the connection closed we are finished and should return.
 	go func() {
-		select {
-		case <-stream.Context().Done():
-			finished <- true
+		if cn, ok := w.(http.CloseNotifier); ok {
+			select {
+			case <-cn.CloseNotify():
+				finished <- true
+			}
 		}
 	}()
 
@@ -146,11 +147,8 @@ func ExecuteCmdNamespace(cmdName string, args []string, ns Namespaces, stream pb
 			finished <- true
 			outPipe.Close()
 		}()
-		sw := streamWriter{
-			stream: stream,
-		}
 		for {
-			l, err := io.Copy(sw, outPipe)
+			l, err := io.Copy(fw, outPipe)
 			if err != nil || l == 0 {
 				return
 			}
@@ -161,7 +159,7 @@ func ExecuteCmdNamespace(cmdName string, args []string, ns Namespaces, stream pb
 	case <-finished:
 		// If the process is still running after we are finished
 		// we should kill it. After the call to Wait() cmd.ProcessState
-		// should be non-nil.
+		// should be non-nil
 		if cmd.ProcessState == nil || !cmd.ProcessState.Exited() {
 			cmd.Process.Kill()
 		}
@@ -170,10 +168,10 @@ func ExecuteCmdNamespace(cmdName string, args []string, ns Namespaces, stream pb
 	return nil
 }
 
-func ExecuteCmdSelfNS(cmdName string, args []string, stream pb.RemoteCommand_SendCommandServer) error {
-	return ExecuteCmdNamespace(cmdName, args, selfNamespace, stream)
+func ExecuteCmdSelfNS(w http.ResponseWriter, cmdName string, args []string) error {
+	return ExecuteCmdNamespace(w, cmdName, args, selfNamespace)
 }
 
-func ExecuteCmdInitNS(cmdName string, args []string, stream pb.RemoteCommand_SendCommandServer) error {
-	return ExecuteCmdNamespace(cmdName, args, initNamespace, stream)
+func ExecuteCmdInitNS(w http.ResponseWriter, cmdName string, args []string) error {
+	return ExecuteCmdNamespace(w, cmdName, args, initNamespace)
 }

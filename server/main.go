@@ -28,36 +28,30 @@ const (
 )
 
 type serverConfig struct {
-	cfgDir     string
-	cfgFile    string
-	staticPath string
-	bindAddr   string
+	cfgDir   string
+	cfgFile  string
+	bindAddr string
 }
 
 var (
 	srvCfg = serverConfig{
-		cfgDir:     "/etc/access-daemon",
-		cfgFile:    "",
-		staticPath: "/static",
-		bindAddr:   fmt.Sprintf(":%d", port),
+		cfgDir:   "/etc/remote-shell",
+		cfgFile:  "",
+		bindAddr: fmt.Sprintf(":%d", port),
+	}
+
+	rootCmd = &cobra.Command{
+		Use:   filepath.Base(os.Args[0]),
+		Short: "A REST API daemon which provides role based operational access to machines",
+		RunE:  mainFunc,
 	}
 )
-
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   filepath.Base(os.Args[0]),
-	Short: "A REST API daemon which provides role based operational access to machines",
-	RunE:  mainFunc,
-}
 
 func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&srvCfg.cfgFile, "config-file", srvCfg.cfgFile, fmt.Sprintf("config file (default %s/config.yaml)", srvCfg.cfgDir))
 	rootCmd.PersistentFlags().StringVar(&srvCfg.cfgDir, "config-dir", srvCfg.cfgDir, "config directory")
-
-	rootCmd.PersistentFlags().StringVar(&srvCfg.staticPath, "static-path", srvCfg.staticPath, "path to static files served at /static")
-
 	rootCmd.PersistentFlags().StringVar(&srvCfg.bindAddr, "bind-addr", srvCfg.bindAddr, "Address to bind")
 }
 

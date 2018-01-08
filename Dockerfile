@@ -1,4 +1,4 @@
-# docker run --rm --pid=host --network=host eparis/access-daemon:latest
+# docker run --rm --pid=host --network=host eparis/remote-shell:latest
 
 FROM rhel7:latest
 
@@ -7,9 +7,10 @@ MAINTAINER Eric Paris <eparis@redhat.com>
 # Runs on port 80, 
 #EXPOSE 3306
 
-CMD ["/access-daemon"]
+CMD ["/server"]
 
-ADD config /etc/access-daemon
-ADD ./daemon/daemon /access-daemon
-ADD ./client/client /static/ops-client
-RUN setcap cap_net_bind_service=ep /access-daemon && chmod +x /access-daemon /static/ops-client
+ADD config /etc/remote-shell/
+ADD bin/server /server
+ADD bin/client /static/client
+ADD bin/serverKubeConfig /etc/remote-shell/
+RUN setcap cap_net_bind_service=ep /server && chmod +x /server /static/client

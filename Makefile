@@ -28,3 +28,17 @@ protobuf: generate
 		-I${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
 		--swagger_out=logtostderr=true:. \
 		api/services.proto
+
+bin-copy: build
+	cp ${GOPATH}/bin/server bin/
+	cp ${GOPATH}/bin/client bin/
+
+docker-build: bin-copy test
+	docker build . -t eparis/remote-shell:latest
+
+docker-run: docker-build
+	docker run --rm --privileged --pid=host --network=host --log-driver=none eparis/remote-shell:latest
+
+docker-clean:
+	./docker-clean.sh
+

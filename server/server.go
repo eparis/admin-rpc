@@ -4,12 +4,10 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
-	"os"
-	"os/exec"
+	"path/filepath"
 	"strings"
 
 	pb "github.com/eparis/remote-shell/api"
@@ -34,6 +32,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"github.com/eparis/remote-shell/operations/command"
+	"github.com/eparis/remote-shell/operations/util"
 )
 
 var (
@@ -41,120 +42,6 @@ var (
 	kubeConfig *rest.Config
 	localAddr  = fmt.Sprintf("localhost:%d", port)
 )
-
-type streamWriter struct {
-	stream pb.RemoteCommand_SendCommandServer
-}
-
-func (sw streamWriter) Write(p []byte) (int, error) {
-	cr := &pb.CommandReply{
-		Output: p,
-	}
-	if err := sw.stream.Send(cr); err != nil {
-		return 0, err
-	}
-	return len(p), nil
-}
-
-// Server is used to implement the RemoteCommandServer
-type server struct{}
-
-func ExecuteCmdNamespace(cmdName string, args []string, stream pb.RemoteCommand_SendCommandServer) error {
-	outPipe, pw, err := os.Pipe()
-	if err != nil {
-		return err
-	}
-
-	cmd := exec.Command(cmdName, args...)
-	cmd.Stdout = pw
-	cmd.Stderr = pw
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	finished := make(chan bool)
-
-	// When the process ends, close the pipe. This will cause the io.Copy() to
-	// hit EOF and return.
-	go func() {
-		cmd.Wait()
-		pw.Close()
-	}()
-
-	// If the client closes the stream mark that we are finished so we may
-	// stop the exec early if needed.
-	go func() {
-		select {
-		case <-stream.Context().Done():
-			finished <- true
-		}
-	}()
-
-	// If the io.Copy() returned that means we either hit an error or outPipe
-	// return EOF. In either case, we've done all we can do, so indicate we
-	// are finished and should return.
-	go func() {
-		defer func() {
-			finished <- true
-			outPipe.Close()
-		}()
-		for {
-			sw := streamWriter{
-				stream: stream,
-			}
-			l, err := io.Copy(sw, outPipe)
-			if err != nil || l == 0 {
-				return
-			}
-		}
-	}()
-
-	select {
-	case <-finished:
-		// If the process is still running after we are finished
-		// we should kill it. After the call to Wait() cmd.ProcessState
-		// should be non-nil.
-		if cmd.ProcessState == nil || !cmd.ProcessState.Exited() {
-			cmd.Process.Kill()
-		}
-	}
-
-	return nil
-}
-
-// sendCommandAuthz checks if the requestor has permission to run the command
-// in question
-func (s *server) sendCommandAuthz(in *pb.CommandRequest, stream pb.RemoteCommand_SendCommandServer) error {
-	tokenInfo := getToken(stream.Context())
-	pretty.Println(tokenInfo)
-
-	user := tokenInfo.Status.User.Username
-
-	if !tokenInfo.Status.Authenticated || user != "eparis@redhat.com" {
-		return fmt.Errorf("user: %v is not authenticated or not eparis", user)
-	}
-	return nil
-}
-
-// SendCommand receives the command from the client and then executes it server-side.
-// It returns a commmand reply consisting of the output of the command.
-func (s *server) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_SendCommandServer) error {
-	var cmdName = in.CmdName
-	var cmdArgs = in.CmdArgs
-
-	/*
-		md, ok := metadata.FromIncomingContext(stream.Context())
-		if !ok {
-			return fmt.Errorf("Unable to get metadata from stream")
-		}
-		pretty.Println(md)
-	*/
-	if err := s.sendCommandAuthz(in, stream); err != nil {
-		return err
-	}
-	return ExecuteCmdNamespace(cmdName, cmdArgs, stream)
-}
 
 func parseToken(token string) (*authnv1.TokenReview, error) {
 	clientset, err := kubernetes.NewForConfig(kubeConfig)
@@ -182,27 +69,6 @@ func uidFromToken(tr *authnv1.TokenReview) string {
 	return tr.Status.User.UID
 }
 
-// This exists because one is not supposed to use any built in types for keys in context.WithValue()
-type authContext string
-
-var (
-	tokenAuthInfo = authContext("tokenInfo")
-)
-
-func getToken(ctx context.Context) *authnv1.TokenReview {
-	tokenInfo := ctx.Value(tokenAuthInfo)
-	ti, ok := tokenInfo.(*authnv1.TokenReview)
-	if !ok {
-		panic("Tried to get a token but didn't putToken")
-	}
-	return ti
-}
-
-func putToken(ctx context.Context, tokenInfo *authnv1.TokenReview) context.Context {
-	// save the TokenReview api object to the context for later use
-	return context.WithValue(ctx, tokenAuthInfo, tokenInfo)
-}
-
 func exampleAuthFunc(ctx context.Context) (context.Context, error) {
 	token, err := grpc_auth.AuthFromMD(ctx, "bearer")
 	if err != nil {
@@ -212,10 +78,11 @@ func exampleAuthFunc(ctx context.Context) (context.Context, error) {
 	if err != nil {
 		return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token: %v", err)
 	}
-	// adds auth.username to the audit messages
+	// adds auth.username and auth.uid to the audit messages
 	grpc_ctxtags.Extract(ctx).Set("auth.username", userNameFromToken(tokenInfo))
 	grpc_ctxtags.Extract(ctx).Set("auth.uid", uidFromToken(tokenInfo))
-	newCtx := putToken(ctx, tokenInfo)
+	// store the token for later
+	newCtx := util.PutToken(ctx, tokenInfo)
 	return newCtx, nil
 }
 
@@ -235,7 +102,8 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 
 func mainFunc(cmd *cobra.Command, args []string) error {
 	pretty.Println(srvCfg)
-	config, err := clientcmd.BuildConfigFromFlags("", "/home/eparis/.kube/config")
+	serverKubeConfig := filepath.Join(srvCfg.cfgDir, "serverKubeConfig")
+	config, err := clientcmd.BuildConfigFromFlags("", serverKubeConfig)
 	if err != nil {
 		log.Fatal("Unable to load kubeconfig: %v\n", err)
 	}
@@ -273,8 +141,9 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 	// Initializes the gRPC server.
 	grpcServer := grpc.NewServer(serverOpts...)
 
-	// Register the server with gRPC.
-	pb.RegisterRemoteCommandServer(grpcServer, &server{})
+	// Register the SendCommand with gRPC.
+	sndCmd := command.NewSendCommand()
+	pb.RegisterRemoteCommandServer(grpcServer, sndCmd)
 
 	// Register reflection service on gRPC server.
 	reflection.Register(grpcServer)
