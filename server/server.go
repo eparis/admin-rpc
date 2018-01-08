@@ -30,6 +30,7 @@ import (
 	//"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	authnv1 "k8s.io/api/authentication/v1"
+	//authzv1 "k8s.io/api/authorization/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -122,6 +123,20 @@ func ExecuteCmdNamespace(cmdName string, args []string, stream pb.RemoteCommand_
 	return nil
 }
 
+// sendCommandAuthz checks if the requestor has permission to run the command
+// in question
+func (s *server) sendCommandAuthz(in *pb.CommandRequest, stream pb.RemoteCommand_SendCommandServer) error {
+	tokenInfo := getToken(stream.Context())
+	pretty.Println(tokenInfo)
+
+	user := tokenInfo.Status.User.Username
+
+	if !tokenInfo.Status.Authenticated || user != "eparis@redhat.com" {
+		return fmt.Errorf("user: %v is not authenticated or not eparis", user)
+	}
+	return nil
+}
+
 // SendCommand receives the command from the client and then executes it server-side.
 // It returns a commmand reply consisting of the output of the command.
 func (s *server) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_SendCommandServer) error {
@@ -135,9 +150,9 @@ func (s *server) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_Send
 		}
 		pretty.Println(md)
 	*/
-	tokenInfo := stream.Context().Value(tokenAuthInfo)
-	pretty.Println(tokenInfo)
-
+	if err := s.sendCommandAuthz(in, stream); err != nil {
+		return err
+	}
 	return ExecuteCmdNamespace(cmdName, cmdArgs, stream)
 }
 
@@ -174,6 +189,20 @@ var (
 	tokenAuthInfo = authContext("tokenInfo")
 )
 
+func getToken(ctx context.Context) *authnv1.TokenReview {
+	tokenInfo := ctx.Value(tokenAuthInfo)
+	ti, ok := tokenInfo.(*authnv1.TokenReview)
+	if !ok {
+		panic("Tried to get a token but didn't putToken")
+	}
+	return ti
+}
+
+func putToken(ctx context.Context, tokenInfo *authnv1.TokenReview) context.Context {
+	// save the TokenReview api object to the context for later use
+	return context.WithValue(ctx, tokenAuthInfo, tokenInfo)
+}
+
 func exampleAuthFunc(ctx context.Context) (context.Context, error) {
 	token, err := grpc_auth.AuthFromMD(ctx, "bearer")
 	if err != nil {
@@ -186,8 +215,7 @@ func exampleAuthFunc(ctx context.Context) (context.Context, error) {
 	// adds auth.username to the audit messages
 	grpc_ctxtags.Extract(ctx).Set("auth.username", userNameFromToken(tokenInfo))
 	grpc_ctxtags.Extract(ctx).Set("auth.uid", uidFromToken(tokenInfo))
-	// save the TokenReview api object to the context for later use
-	newCtx := context.WithValue(ctx, tokenAuthInfo, tokenInfo)
+	newCtx := putToken(ctx, tokenInfo)
 	return newCtx, nil
 }
 
