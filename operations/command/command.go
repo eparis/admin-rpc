@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/kr/pretty"
+	//"google.golang.org/grpc/metadata"
+	//authzv1 "k8s.io/api/authorization/v1"
 
 	pb "github.com/eparis/remote-shell/api"
 	"github.com/eparis/remote-shell/operations/util"

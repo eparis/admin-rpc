@@ -25,16 +25,16 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	//"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	authnv1 "k8s.io/api/authentication/v1"
-	//authzv1 "k8s.io/api/authorization/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/eparis/remote-shell/operations/command"
 	"github.com/eparis/remote-shell/operations/util"
+
+	// All of the rpc operations we support
+	"github.com/eparis/remote-shell/operations/command"
 )
 
 var (
