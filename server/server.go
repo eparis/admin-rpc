@@ -2,7 +2,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -23,11 +22,12 @@ import (
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/metadata"
+	//"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	authnv1 "k8s.io/api/authentication/v1"
 	"k8s.io/client-go/kubernetes"
@@ -39,11 +39,6 @@ var (
 	_          = pretty.Print
 	kubeConfig *rest.Config
 	localAddr  = fmt.Sprintf("localhost:%d", port)
-)
-
-// The port the server is listening on.
-const (
-	port = 12021
 )
 
 type streamWriter struct {
@@ -107,15 +102,8 @@ func ExecuteCmdNamespace(cmdName string, args []string, stream pb.RemoteCommand_
 			sw := streamWriter{
 				stream: stream,
 			}
-			buf := bytes.Buffer{}
 			l, err := io.Copy(sw, outPipe)
 			if err != nil || l == 0 {
-				return
-			}
-			cr := &pb.CommandReply{
-				Output: buf.Bytes(),
-			}
-			if err := stream.Send(cr); err != nil {
 				return
 			}
 		}
@@ -140,12 +128,13 @@ func (s *server) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_Send
 	var cmdName = in.CmdName
 	var cmdArgs = in.CmdArgs
 
-	md, ok := metadata.FromIncomingContext(stream.Context())
-	if !ok {
-		return fmt.Errorf("Unable to get metadata from stream")
-	}
-	pretty.Println(md)
-
+	/*
+		md, ok := metadata.FromIncomingContext(stream.Context())
+		if !ok {
+			return fmt.Errorf("Unable to get metadata from stream")
+		}
+		pretty.Println(md)
+	*/
 	tokenInfo := stream.Context().Value(tokenAuthInfo)
 	pretty.Println(tokenInfo)
 
@@ -216,7 +205,8 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 	})
 }
 
-func main() {
+func mainFunc(cmd *cobra.Command, args []string) error {
+	pretty.Println(srvCfg)
 	config, err := clientcmd.BuildConfigFromFlags("", "/home/eparis/.kube/config")
 	if err != nil {
 		log.Fatal("Unable to load kubeconfig: %v\n", err)
@@ -276,7 +266,7 @@ func main() {
 		grpc.WithTransportCredentials(dcreds),
 	}
 
-	err = pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, "localhost:12021", dopts)
+	err = pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, localAddr, dopts)
 	if err != nil {
 		log.Fatal("RegisterRemoteCommandHandlerFromEndpoint: %v\n", err)
 	}
@@ -285,7 +275,7 @@ func main() {
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/", gwmux)
 
-	conn, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	conn, err := net.Listen("tcp", srvCfg.bindAddr)
 	if err != nil {
 		log.Fatalf("Failed to listen %v", err)
 	}
@@ -302,4 +292,5 @@ func main() {
 	if err := srv.Serve(tls.NewListener(conn, srv.TLSConfig)); err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
+	return nil
 }

@@ -93,13 +93,13 @@ func doIt(cmd *cobra.Command, args []string) error {
 
 		for {
 			res, err := stream.Recv()
-			if err == io.EOF {
-				break
-			}
 			if err != nil {
+				if err == io.EOF {
+					break
+				}
 				log.Fatalf("%v.SendCommand(_) = _, %v", c, err)
 			}
-			log.Printf("    %s", res.Output)
+			fmt.Printf("%s", res.Output)
 		}
 	}
 	return nil
