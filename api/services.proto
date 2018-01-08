@@ -11,8 +11,6 @@ service RemoteCommand {
       body: "*"
     };
   }
-  // Send a stream of commands to be executed
-  rpc RemoteShell (stream CommandRequest) returns (stream CommandReply) { }
 }
 
 // Request message

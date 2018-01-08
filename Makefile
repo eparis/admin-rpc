@@ -4,7 +4,6 @@ test: build
 build: protobuf
 	go install github.com/eparis/remote-shell/server
 	go install github.com/eparis/remote-shell/client
-	go install github.com/eparis/remote-shell/streamclient
 
 clean:
 	-rm client/client

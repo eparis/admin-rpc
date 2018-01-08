@@ -27,7 +27,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	//"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	authnv1 "k8s.io/api/authentication/v1"
 	"k8s.io/client-go/kubernetes"
@@ -38,15 +38,12 @@ import (
 var (
 	_          = pretty.Print
 	kubeConfig *rest.Config
+	localAddr  = fmt.Sprintf("localhost:%d", port)
 )
 
 // The port the server is listening on.
 const (
 	port = 12021
-)
-
-var (
-	localAddr = fmt.Sprintf("localhost:%d", port)
 )
 
 type streamWriter struct {
@@ -67,7 +64,6 @@ func (sw streamWriter) Write(p []byte) (int, error) {
 type server struct{}
 
 func ExecuteCmdNamespace(cmdName string, args []string, stream pb.RemoteCommand_SendCommandServer) error {
-
 	outPipe, pw, err := os.Pipe()
 	if err != nil {
 		return err
@@ -144,52 +140,50 @@ func (s *server) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_Send
 	var cmdName = in.CmdName
 	var cmdArgs = in.CmdArgs
 
+	md, ok := metadata.FromIncomingContext(stream.Context())
+	if !ok {
+		return fmt.Errorf("Unable to get metadata from stream")
+	}
+	pretty.Println(md)
+
+	tokenInfo := stream.Context().Value(tokenAuthInfo)
+	pretty.Println(tokenInfo)
+
 	return ExecuteCmdNamespace(cmdName, cmdArgs, stream)
 }
 
-func (s *server) RemoteShell(stream pb.RemoteCommand_RemoteShellServer) error {
-	for {
-		in, err := stream.Recv()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		cmdName := in.CmdName
-		cmdArgs := in.CmdArgs
-
-		if err := ExecuteCmdNamespace(cmdName, cmdArgs, stream); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func parseToken(token string) (struct{}, error) {
+func parseToken(token string) (*authnv1.TokenReview, error) {
 	clientset, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
-		return struct{}{}, err
+		return nil, err
 	}
-	sar := &authnv1.TokenReview{
+	tr := &authnv1.TokenReview{
 		Spec: authnv1.TokenReviewSpec{
 			Token: token,
 		},
 	}
-	pretty.Print(sar)
-	//sar.Spec.Token = token
-	sar, err = clientset.AuthenticationV1().TokenReviews().Create(sar)
+	tr, err = clientset.AuthenticationV1().TokenReviews().Create(tr)
 	if err != nil {
-		return struct{}{}, err
+		return nil, err
 	}
-	pretty.Print(sar)
 
-	return struct{}{}, nil
+	return tr, nil
 }
 
-func userClaimFromToken(struct{}) string {
-	return "foobar"
+func userNameFromToken(tr *authnv1.TokenReview) string {
+	return tr.Status.User.Username
 }
+
+func uidFromToken(tr *authnv1.TokenReview) string {
+	return tr.Status.User.UID
+}
+
+// This exists because one is not supposed to use any built in types for keys in context.WithValue()
+type authContext string
+
+var (
+	tokenAuthInfo = authContext("tokenInfo")
+)
 
 func exampleAuthFunc(ctx context.Context) (context.Context, error) {
 	token, err := grpc_auth.AuthFromMD(ctx, "bearer")
@@ -200,14 +194,16 @@ func exampleAuthFunc(ctx context.Context) (context.Context, error) {
 	if err != nil {
 		return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token: %v", err)
 	}
-	grpc_ctxtags.Extract(ctx).Set("auth.sub", userClaimFromToken(tokenInfo))
-	newCtx := context.WithValue(ctx, "tokenInfo", tokenInfo)
-	fmt.Printf("token: %s\n", token)
+	// adds auth.username to the audit messages
+	grpc_ctxtags.Extract(ctx).Set("auth.username", userNameFromToken(tokenInfo))
+	grpc_ctxtags.Extract(ctx).Set("auth.uid", uidFromToken(tokenInfo))
+	// save the TokenReview api object to the context for later use
+	newCtx := context.WithValue(ctx, tokenAuthInfo, tokenInfo)
 	return newCtx, nil
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC
-// connections or otherHandler otherwise. Copied from cockroachdb.
+// connections or otherHandler otherwise.
 func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proto := r.ProtoMajor
