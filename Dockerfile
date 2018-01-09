@@ -9,7 +9,8 @@ MAINTAINER Eric Paris <eparis@redhat.com>
 
 CMD ["/server"]
 
-ADD config /etc/remote-shell/
+ADD config/ /etc/remote-shell/
+ADD certs/ /etc/remote-shell/
 ADD bin/server /server
 ADD bin/client /static/client
 ADD bin/serverKubeConfig /etc/remote-shell/

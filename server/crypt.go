@@ -3,90 +3,8 @@ package main
 import (
 	"crypto/tls"
 	"crypto/x509"
-)
-
-const (
-	key = `-----BEGIN RSA PRIVATE KEY-----
-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
------END RSA PRIVATE KEY-----`
-	cert = `-----BEGIN CERTIFICATE-----
-MIIFFDCCAvwCCQCUOECcXt0+AjANBgkqhkiG9w0BAQsFADA8MQswCQYDVQQGEwJY
-WDEVMBMGA1UEBwwMRGVmYXVsdCBDaXR5MRYwFAYDVQQKDA1OT1QgQSBSRUFMIENB
-MB4XDTE4MDEwNDIyMzIyNVoXDTI4MDEwMjIyMzIyNVowXDELMAkGA1UEBhMCWFgx
-FTATBgNVBAcMDERlZmF1bHQgQ2l0eTEcMBoGA1UECgwTRGVmYXVsdCBDb21wYW55
-IEx0ZDEYMBYGA1UEAwwPbG9jYWxob3N0OjEyMDIxMIICIjANBgkqhkiG9w0BAQEF
-AAOCAg8AMIICCgKCAgEAuIxpF9VJ3WrlZ6dKb2PkwQ9g2DsLL/93WxHhCYwy9NpT
-zuDnqjv+/W9ovTFkJAHwvT6PFNhhggW5pu9c31cC7z+HhUKWS8Sl+HzB6uNTpTDg
-f3ptQrwrZ5RJq7fhoYatFixUsKSfCZwmshqtJ9zs2olU5/9Uys4jSaVGWQeuyuO6
-yIXe0tiO5TC+khmPJFGTIzcrk7+jurGOFMgxjLEIdyjgGdOige6OhhHoKCcsVsat
-AXdrZXaqS/BwMyi5AmiwgM7Ko70FCamrzcSZ5s9RlCPa7YuKOQc4lfQmF1wVlK1/
-B8wlBZ0Z6LHyPPDTQf2JimaQFC6LPO3SD42/e50JCK6NdfwlgwuJBx2F7DKNjHF7
-aHVH4smNIuuC7JhlnYUPMvMk4bOqv9EPzrhZOEckRUd0tpTouLT/6aMnMCmi6Z2C
-DVtplvoKgaJIA4Td4TSYwstBrSeodBPCn6uoZ0sx0zCnjITcDH0f0TGD9F1uD4gL
-qvwIAYHCH0Bn6+Z5UdKWtsGbuPWSD3B/NQpVb3mzrjFWnBOu4tC0InLciC4l4BNS
-6q/8s83d7t2STpc8dc+dPHqIgNDUSB3oWdr3TZTWbwBvXMtjzQYYkefhw3z+iijs
-HJkqdOL1LG014oTrCQuG9Wr1+PPyeggRPQdwuS/yVY2tbOPV7Adp3C6eUVwOD+kC
-AwEAATANBgkqhkiG9w0BAQsFAAOCAgEAEnsNQlQ6oFWjXDaG+ibQRGb7yPMWNp6W
-EUfnk8ETvDikfnIvYG8aqZEfLAwPCsQ7tfDB7P7e3kOxW/Wp3GpTBKEqoSddIsYG
-JY5q/U5hl6jK8d/2Wdd9beO0muvZvxBU1fZInl/dsi/qErZmmh2lX57hwdWEXYmx
-uf4M4F2/UBuNzjOtFNyykRPJuuK40OHtMuSleMtFErNSDVLH2zbfs/SHnJF2OBYi
-v+XxC+WNPMuda8sp//6crZcvBVnPSmoZ46VcxNDnSH8ELz+hg1CotdYqaTrltPYt
-h5a4D37M1rTWTakHjgT454PO2cjvBmcrD9KnLCgiGClrHHWV06IynIDje2cSiRN4
-0y2x36C6UqxeYDPeDdCUeZLDSA1skHGQQo3vQliNFQh3ZsFzGnMmWGSNpeRPjq1I
-zsOeCD0JQdy7a8oTp5AuanoeSzT7DtV4UwNvnTT7koHhjYJGBIFyVi7hDyyl+yWW
-d3ch8AFWGWuwsjMS/iKDjAEHNmg8z2OTEj/MzQ7f+CUB1wRvCGaXybcyg/+h0LtN
-ER6VdDRVxmckUAv/KBF3SAPsuORutYsOsUlnM8ERj0YjQDYdkCRgc+HRuHfjxi+w
-PvHPpZWgCkUpGZlyXa8Kp0iplE/3Yj79VYllFsLmElrUAa5w4z36HMCz2R2rkruN
-/GF9WMuvZ1c=
------END CERTIFICATE-----`
+	"io/ioutil"
+	"path/filepath"
 )
 
 var (
@@ -94,16 +12,28 @@ var (
 	demoCertPool *x509.CertPool
 )
 
-func init() {
-	var err error
-	pair, err := tls.X509KeyPair([]byte(cert), []byte(key))
+func initCerts() error {
+	serverKeyFile := filepath.Join(srvCfg.cfgDir, "server.key")
+	serverKey, err := ioutil.ReadFile(serverKeyFile)
+	if err != nil {
+		return err
+	}
+
+	serverPemFile := filepath.Join(srvCfg.cfgDir, "server.pem")
+	serverPem, err := ioutil.ReadFile(serverPemFile)
+	if err != nil {
+		return err
+	}
+
+	pair, err := tls.X509KeyPair(serverPem, serverKey)
 	if err != nil {
 		panic(err)
 	}
 	demoKeyPair = &pair
 	demoCertPool = x509.NewCertPool()
-	ok := demoCertPool.AppendCertsFromPEM([]byte(cert))
+	ok := demoCertPool.AppendCertsFromPEM(serverPem)
 	if !ok {
 		panic("bad certs")
 	}
+	return nil
 }

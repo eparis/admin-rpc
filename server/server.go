@@ -109,6 +109,11 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 	}
 	kubeConfig = config
 
+	err = initCerts()
+	if err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	logrusOpts := []grpc_logrus.Option{
