@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	"github.com/kr/pretty"
+	"golang.org/x/net/context"
 	//"google.golang.org/grpc/metadata"
-	//authzv1 "k8s.io/api/authorization/v1"
+	authzv1 "k8s.io/api/authorization/v1"
 
 	pb "github.com/eparis/remote-shell/api"
 	"github.com/eparis/remote-shell/operations/util"
@@ -16,15 +17,42 @@ type sndCmd struct{}
 
 // sendCommandAuthz checks if the requestor has permission to run the command
 // in question
-func (s *sndCmd) sendCommandAuthz(in *pb.CommandRequest, stream pb.RemoteCommand_SendCommandServer) error {
-	tokenInfo := util.GetToken(stream.Context())
+func (s *sndCmd) sendCommandAuthz(in *pb.CommandRequest, ctx context.Context) error {
+	tokenInfo := util.GetToken(ctx)
+	clientset := util.GetClientset(ctx)
 	pretty.Println(tokenInfo)
 
-	user := tokenInfo.Status.User.Username
-
-	if !tokenInfo.Status.Authenticated || user != "eparis@redhat.com" {
-		return fmt.Errorf("user: %v is not authenticated or not eparis", user)
+	// contortions to Change authenticationv1.ExtraValue into authorizationv1.ExtraValue
+	// even though they are both just strings :-(
+	authnExtras := tokenInfo.Status.User.Extra
+	authzExtras := make(map[string]authzv1.ExtraValue, len(authnExtras))
+	for key, value := range authnExtras {
+		authzExtras[key] = authzv1.ExtraValue(value)
 	}
+	sar := &authzv1.SubjectAccessReview{
+		Spec: authzv1.SubjectAccessReviewSpec{
+			User:   tokenInfo.Status.User.Username,
+			Groups: tokenInfo.Status.User.Groups,
+			UID:    tokenInfo.Status.User.UID,
+			Extra:  authzExtras,
+			ResourceAttributes: &authzv1.ResourceAttributes{
+				Namespace: "default",
+				Verb:      "get",
+				Resource:  "pods",
+				Version:   "v1",
+			},
+		},
+	}
+
+	sar, err := clientset.AuthorizationV1().SubjectAccessReviews().Create(sar)
+	if err != nil {
+		return err
+	}
+
+	if !sar.Status.Allowed {
+		return fmt.Errorf("user: %v is not allowed to get pods in the default namespace. Refusing", tokenInfo.Status.User.Username)
+	}
+
 	return nil
 }
 
@@ -34,6 +62,12 @@ func (s *sndCmd) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_Send
 	var cmdName = in.CmdName
 	var cmdArgs = in.CmdArgs
 
+	ctx := stream.Context()
+
+	util.AddAuditData(ctx, "command.name", cmdName)
+	cmdArgsString := fmt.Sprintf("%#v", cmdArgs)
+	util.AddAuditData(ctx, "command.args", cmdArgsString)
+
 	/*
 	   md, ok := metadata.FromIncomingContext(stream.Context())
 	   if !ok {
@@ -41,7 +75,7 @@ func (s *sndCmd) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_Send
 	   }
 	   pretty.Println(md)
 	*/
-	if err := s.sendCommandAuthz(in, stream); err != nil {
+	if err := s.sendCommandAuthz(in, ctx); err != nil {
 		return err
 	}
 

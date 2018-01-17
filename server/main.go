@@ -29,14 +29,12 @@ const (
 
 type serverConfig struct {
 	cfgDir   string
-	cfgFile  string
 	bindAddr string
 }
 
 var (
 	srvCfg = serverConfig{
 		cfgDir:   "/etc/remote-shell",
-		cfgFile:  "",
 		bindAddr: fmt.Sprintf(":%d", port),
 	}
 
@@ -50,18 +48,13 @@ var (
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&srvCfg.cfgFile, "config-file", srvCfg.cfgFile, fmt.Sprintf("config file (default %s/config.yaml)", srvCfg.cfgDir))
 	rootCmd.PersistentFlags().StringVar(&srvCfg.cfgDir, "config-dir", srvCfg.cfgDir, "config directory")
 	rootCmd.PersistentFlags().StringVar(&srvCfg.bindAddr, "bind-addr", srvCfg.bindAddr, "Address to bind")
 }
 
 func initConfig() {
-	if srvCfg.cfgFile != "" {
-		viper.SetConfigFile(srvCfg.cfgFile)
-	} else {
-		viper.AddConfigPath("/etc/access-daemon")
-		viper.SetConfigName("config")
-	}
+	viper.AddConfigPath(srvCfg.cfgDir)
+	viper.SetConfigName("config")
 
 	viper.AutomaticEnv() // read in environment variables that match
 

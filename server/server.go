@@ -25,7 +25,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/reflection"
 	authnv1 "k8s.io/api/authentication/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -43,19 +42,21 @@ var (
 	localAddr  = fmt.Sprintf("localhost:%d", port)
 )
 
-func parseToken(token string) (*authnv1.TokenReview, error) {
-	clientset, err := kubernetes.NewForConfig(kubeConfig)
-	if err != nil {
-		return nil, err
-	}
+func parseToken(clientset *kubernetes.Clientset, token string) (*authnv1.TokenReview, error) {
 	tr := &authnv1.TokenReview{
 		Spec: authnv1.TokenReviewSpec{
 			Token: token,
 		},
 	}
-	tr, err = clientset.AuthenticationV1().TokenReviews().Create(tr)
+	tr, err := clientset.AuthenticationV1().TokenReviews().Create(tr)
 	if err != nil {
 		return nil, err
+	}
+	if !tr.Status.Authenticated {
+		if tr.Status.Error != "" {
+			return nil, fmt.Errorf("%s", tr.Status.Error)
+		}
+		return nil, fmt.Errorf("Response from RokenReview was unauthenticated")
 	}
 
 	return tr, nil
@@ -69,12 +70,17 @@ func uidFromToken(tr *authnv1.TokenReview) string {
 	return tr.Status.User.UID
 }
 
-func exampleAuthFunc(ctx context.Context) (context.Context, error) {
+func attachAuthnData(ctx context.Context) (context.Context, error) {
+	clientset, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	token, err := grpc_auth.AuthFromMD(ctx, "bearer")
 	if err != nil {
 		return nil, err
 	}
-	tokenInfo, err := parseToken(token)
+	tokenInfo, err := parseToken(clientset, token)
 	if err != nil {
 		return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token: %v", err)
 	}
@@ -82,8 +88,9 @@ func exampleAuthFunc(ctx context.Context) (context.Context, error) {
 	grpc_ctxtags.Extract(ctx).Set("auth.username", userNameFromToken(tokenInfo))
 	grpc_ctxtags.Extract(ctx).Set("auth.uid", uidFromToken(tokenInfo))
 	// store the token for later
-	newCtx := util.PutToken(ctx, tokenInfo)
-	return newCtx, nil
+	ctx = util.PutToken(ctx, tokenInfo)
+	ctx = util.PutClientset(ctx, clientset)
+	return ctx, nil
 }
 
 // grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC
@@ -98,6 +105,14 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 			otherHandler.ServeHTTP(w, r)
 		}
 	})
+}
+
+// Register all of the operations which are defined with the server
+func registerAllOperations(grpcServer *grpc.Server) error {
+	sndCmd := command.NewSendCommand()
+	pb.RegisterRemoteCommandServer(grpcServer, sndCmd)
+
+	return nil
 }
 
 func mainFunc(cmd *cobra.Command, args []string) error {
@@ -134,24 +149,20 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 			grpc_ctxtags.StreamServerInterceptor(),
 			grpc_logrus.StreamServerInterceptor(logrus.NewEntry(logrus.New()), logrusOpts...),
 			grpc_prometheus.StreamServerInterceptor,
-			grpc_auth.StreamServerInterceptor(exampleAuthFunc),
+			grpc_auth.StreamServerInterceptor(attachAuthnData),
 		),
 		grpc_middleware.WithUnaryServerChain(
 			grpc_ctxtags.UnaryServerInterceptor(),
 			grpc_logrus.UnaryServerInterceptor(logrus.NewEntry(logrus.New()), logrusOpts...),
 			grpc_prometheus.UnaryServerInterceptor,
-			grpc_auth.UnaryServerInterceptor(exampleAuthFunc),
+			grpc_auth.UnaryServerInterceptor(attachAuthnData),
 		),
 	}
 	// Initializes the gRPC server.
 	grpcServer := grpc.NewServer(serverOpts...)
 
-	// Register the SendCommand with gRPC.
-	sndCmd := command.NewSendCommand()
-	pb.RegisterRemoteCommandServer(grpcServer, sndCmd)
-
-	// Register reflection service on gRPC server.
-	reflection.Register(grpcServer)
+	// This registers all of the things we can do!
+	registerAllOperations(grpcServer)
 
 	// After all your registrations, make sure all of the Prometheus metrics are initialized.
 	grpc_prometheus.Register(grpcServer)

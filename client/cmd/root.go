@@ -31,7 +31,6 @@ const (
 var (
 	caFile         = "certs/CA.pem"
 	cfgDir         string
-	cfgFile        string
 	kubeConfigFile string
 	serverAddr     = fmt.Sprintf("localhost:%d", port)
 )
@@ -47,7 +46,6 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&caFile, "ca-file", caFile, "path to ca certificate to authenticate server")
 	rootCmd.PersistentFlags().StringVar(&kubeConfigFile, "kubeconfig-file", kubeConfigFile, fmt.Sprintf("kubeconfig file (default $HOME/.kube/config)"))
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config-file", cfgFile, fmt.Sprintf("config file (default $HOME/.ops-client.yaml)"))
 	rootCmd.PersistentFlags().StringVar(&cfgDir, "config-dir", cfgDir, "config directory (default $HOME)")
 	rootCmd.PersistentFlags().StringVar(&serverAddr, "server", serverAddr, "URL of server")
 }
@@ -55,21 +53,17 @@ func init() {
 func initConfig() {
 	// Find home directory.
 	home, err := homedir.Dir()
-	if err != nil && (cfgFile == "" || kubeConfigFile == "") {
-		fmt.Printf("--kubeconfig-file or --config-file is unset and unable to determine $HOME: %v\n", err)
+	if err != nil && (cfgDir == "" || kubeConfigFile == "") {
+		fmt.Printf("--kubeconfig-file or --config-dir is unset and unable to determine $HOME: %v\n", err)
 		os.Exit(1)
 	}
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-		if cfgDir == "" {
-			cfgDir = home
-		}
-
-		// Search config in home directory with name ".kube-access-client" (without extension).
-		viper.AddConfigPath(cfgDir)
-		viper.SetConfigName(".kube-access-client")
+	if cfgDir == "" {
+		cfgDir = home
 	}
+
+	// Search config in home directory with name ".kube-access-client" (without extension).
+	viper.AddConfigPath(cfgDir)
+	viper.SetConfigName(".kube-access-client")
 	if kubeConfigFile == "" {
 		kubeConfigFile = filepath.Join(home, ".kube/config")
 	}
