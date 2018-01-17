@@ -86,7 +86,7 @@ func doRun(cmd *cobra.Command, args []string) error {
 			if err == io.EOF {
 				break
 			}
-			log.Fatalf("%v.SendCommand(_) = _, %v", c, err)
+			log.Fatalf("%v\n", err)
 		}
 		fmt.Printf("%s", res.Output)
 	}

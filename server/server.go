@@ -109,6 +109,9 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 
 // Register all of the operations which are defined with the server
 func registerAllOperations(grpcServer *grpc.Server) error {
+	if err := command.Load(srvCfg.cfgDir); err != nil {
+		return err
+	}
 	sndCmd := command.NewSendCommand()
 	pb.RegisterRemoteCommandServer(grpcServer, sndCmd)
 
@@ -162,7 +165,9 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 	grpcServer := grpc.NewServer(serverOpts...)
 
 	// This registers all of the things we can do!
-	registerAllOperations(grpcServer)
+	if err := registerAllOperations(grpcServer); err != nil {
+		return err
+	}
 
 	// After all your registrations, make sure all of the Prometheus metrics are initialized.
 	grpc_prometheus.Register(grpcServer)
