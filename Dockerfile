@@ -4,12 +4,11 @@ FROM rhel7:latest
 
 MAINTAINER Eric Paris <eparis@redhat.com>
 
-# Runs on port 80, 
-#EXPOSE 3306
+#EXPOSE 12021
 
 CMD ["/server"]
 
 ADD config/ /etc/remote-shell/
 ADD bin/server /server
 ADD bin/client /static/client
-RUN setcap cap_net_bind_service=ep /server && chmod +x /server /static/client
+RUN chmod +x /server /static/client

@@ -114,12 +114,16 @@ func isGRPC(r *http.Request, rm *mux.RouteMatch) bool {
 
 func mainFunc(cmd *cobra.Command, args []string) error {
 	pretty.Println(srvCfg)
+	var err error
 	serverKubeConfig := filepath.Join(srvCfg.cfgDir, "serverKubeConfig")
-	config, err := clientcmd.BuildConfigFromFlags("", serverKubeConfig)
+	kubeConfig, err = clientcmd.BuildConfigFromFlags("", serverKubeConfig)
 	if err != nil {
-		log.Fatal("Unable to load kubeconfig: %v\n", err)
+		// creates the in-cluster config
+		kubeConfig, err = rest.InClusterConfig()
+		if err != nil {
+			log.Fatal("Unable to load kubeconfig in cluster or from %s: %v\n", serverKubeConfig, err)
+		}
 	}
-	kubeConfig = config
 
 	err = initCerts()
 	if err != nil {

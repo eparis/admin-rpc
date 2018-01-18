@@ -1,5 +1,5 @@
 all: docker-build
-	
+
 DATE := $(shell date +%F)
 GIT := $(shell git rev-parse --short HEAD)
 TAG ?= $(DATE)-$(GIT)
@@ -66,7 +66,8 @@ docker-clean:
 
 # Launching containers on kubernetes
 deploy: docker-push deployment
-	kubectl apply -f $(APP)/local.deployment.yaml --record
+	kubectl apply -f $(OBJECTDIR)/service.yaml
+	kubectl apply -f $(OBJECTDIR)/local.deployment.yaml --record
 
 # updates the deployment.yaml with current build information and sets it to --dry-run
 deployment:
