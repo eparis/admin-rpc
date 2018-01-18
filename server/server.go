@@ -99,6 +99,7 @@ func registerAllOperations(grpcServer *grpc.Server) error {
 	return nil
 }
 
+// isGRPC returns true if the traffic is http/2 and Content-Type==application/grpc
 func isGRPC(r *http.Request, rm *mux.RouteMatch) bool {
 	if r.ProtoMajor != 2 {
 		return false
@@ -172,6 +173,7 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 		grpc.WithTransportCredentials(dcreds),
 	}
 
+	// Load all GRPC endpoints into the json gateway mux
 	gwmux := runtime.NewServeMux()
 	err = pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, localAddr, dopts)
 	if err != nil {
@@ -179,18 +181,19 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 	}
 
 	// This is the main router for the remote-shell
-	r := mux.NewRouter()
+	router := mux.NewRouter()
 
-	// This sends all http2 + application/grpc to the grpc server
-	r.PathPrefix("/").HandlerFunc(grpcServer.ServeHTTP).MatcherFunc(isGRPC)
+	// Send all grpc traffic to the grpc server
+	router.PathPrefix("/").HandlerFunc(grpcServer.ServeHTTP).MatcherFunc(isGRPC)
 
-	s := r.Methods("GET").Subrouter()
+	s := router.Methods("GET").Subrouter()
 	// Register Prometheus metrics handler.
 	s.PathPrefix("/metrics").Handler(promhttp.Handler())
 	// Server the /static dir so users can download the client
 	s.PathPrefix("/static").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("/static"))))
+
 	// Send everything else to the json->grpc gateway mux
-	r.PathPrefix("/").Handler(gwmux)
+	router.PathPrefix("/").Handler(gwmux)
 
 	conn, err := net.Listen("tcp", srvCfg.bindAddr)
 	if err != nil {
