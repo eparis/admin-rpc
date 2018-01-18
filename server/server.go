@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	pb "github.com/eparis/remote-shell/api"
+	"github.com/gorilla/mux"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
@@ -42,7 +43,8 @@ var (
 	localAddr  = fmt.Sprintf("localhost:%d", port)
 )
 
-func parseToken(clientset *kubernetes.Clientset, token string) (*authnv1.TokenReview, error) {
+// validateToken will ask the Kubernetes API Server to do a TokenReview
+func validateToken(clientset *kubernetes.Clientset, token string) (*authnv1.TokenReview, error) {
 	tr := &authnv1.TokenReview{
 		Spec: authnv1.TokenReviewSpec{
 			Token: token,
@@ -62,14 +64,7 @@ func parseToken(clientset *kubernetes.Clientset, token string) (*authnv1.TokenRe
 	return tr, nil
 }
 
-func userNameFromToken(tr *authnv1.TokenReview) string {
-	return tr.Status.User.Username
-}
-
-func uidFromToken(tr *authnv1.TokenReview) string {
-	return tr.Status.User.UID
-}
-
+// attachAuthnData will attach the kubernetes clientset and TokenReview to the context.Context
 func attachAuthnData(ctx context.Context) (context.Context, error) {
 	clientset, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
@@ -80,31 +75,17 @@ func attachAuthnData(ctx context.Context) (context.Context, error) {
 	if err != nil {
 		return nil, err
 	}
-	tokenInfo, err := parseToken(clientset, token)
+	tokenInfo, err := validateToken(clientset, token)
 	if err != nil {
 		return nil, grpc.Errorf(codes.Unauthenticated, "invalid auth token: %v", err)
 	}
 	// adds auth.username and auth.uid to the audit messages
-	grpc_ctxtags.Extract(ctx).Set("auth.username", userNameFromToken(tokenInfo))
-	grpc_ctxtags.Extract(ctx).Set("auth.uid", uidFromToken(tokenInfo))
+	grpc_ctxtags.Extract(ctx).Set("auth.username", tokenInfo.Status.User.Username)
+	grpc_ctxtags.Extract(ctx).Set("auth.uid", tokenInfo.Status.User.UID)
 	// store the token for later
 	ctx = util.PutToken(ctx, tokenInfo)
 	ctx = util.PutClientset(ctx, clientset)
 	return ctx, nil
-}
-
-// grpcHandlerFunc returns an http.Handler that delegates to grpcServer on incoming gRPC
-// connections or otherHandler otherwise.
-func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		proto := r.ProtoMajor
-		contentType := r.Header.Get("Content-Type")
-		if proto == 2 && strings.Contains(contentType, "application/grpc") {
-			grpcServer.ServeHTTP(w, r)
-		} else {
-			otherHandler.ServeHTTP(w, r)
-		}
-	})
 }
 
 // Register all of the operations which are defined with the server
@@ -116,6 +97,17 @@ func registerAllOperations(grpcServer *grpc.Server) error {
 	pb.RegisterRemoteCommandServer(grpcServer, sndCmd)
 
 	return nil
+}
+
+func isGRPC(r *http.Request, rm *mux.RouteMatch) bool {
+	if r.ProtoMajor != 2 {
+		return false
+	}
+	contentType := r.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "application/grpc") {
+		return false
+	}
+	return true
 }
 
 func mainFunc(cmd *cobra.Command, args []string) error {
@@ -172,10 +164,6 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 	// After all your registrations, make sure all of the Prometheus metrics are initialized.
 	grpc_prometheus.Register(grpcServer)
 
-	mux := http.NewServeMux()
-
-	gwmux := runtime.NewServeMux()
-
 	dcreds := credentials.NewTLS(&tls.Config{
 		ServerName: localAddr,
 		RootCAs:    demoCertPool,
@@ -184,14 +172,25 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 		grpc.WithTransportCredentials(dcreds),
 	}
 
+	gwmux := runtime.NewServeMux()
 	err = pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, localAddr, dopts)
 	if err != nil {
 		log.Fatal("RegisterRemoteCommandHandlerFromEndpoint: %v\n", err)
 	}
 
+	// This is the main router for the remote-shell
+	r := mux.NewRouter()
+
+	// This sends all http2 + application/grpc to the grpc server
+	r.PathPrefix("/").HandlerFunc(grpcServer.ServeHTTP).MatcherFunc(isGRPC)
+
+	s := r.Methods("GET").Subrouter()
 	// Register Prometheus metrics handler.
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.Handle("/", gwmux)
+	s.PathPrefix("/metrics").Handler(promhttp.Handler())
+	// Server the /static dir so users can download the client
+	s.PathPrefix("/static").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("/static"))))
+	// Send everything else to the json->grpc gateway mux
+	r.PathPrefix("/").Handler(gwmux)
 
 	conn, err := net.Listen("tcp", srvCfg.bindAddr)
 	if err != nil {
@@ -200,7 +199,7 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 
 	srv := &http.Server{
 		Addr:    localAddr,
-		Handler: grpcHandlerFunc(grpcServer, mux),
+		Handler: r,
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{*demoKeyPair},
 			NextProtos:   []string{"h2"},

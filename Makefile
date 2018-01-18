@@ -37,7 +37,7 @@ docker-build: bin-copy test
 	docker build . -t eparis/remote-shell:latest
 
 docker-run: docker-build
-	docker run --rm --privileged --pid=host --network=host --log-driver=none eparis/remote-shell:latest
+	docker run --rm --privileged -v $(HOME)/.kube/config:/etc/remote-shell/serverKubeConfig -v $(CURDIR)/certs:/etc/remote-shell/certs/ --pid=host --network=host --log-driver=none eparis/remote-shell:latest
 
 docker-clean:
 	./docker-clean.sh
