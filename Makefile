@@ -1,3 +1,19 @@
+all: docker-build
+	
+DATE := $(shell date +%F)
+GIT := $(shell git rev-parse --short HEAD)
+TAG ?= $(DATE)-$(GIT)
+
+REPO ?= docker.io/eparis
+APP ?= remote-shell
+CONTAINER := $(REPO)/$(APP):$(TAG)
+
+KUBECONFIG ?= $(HOME)/.kube/config
+CERTDIR ?= $(CURDIR)/certs
+
+OBJECTDIR ?= $(CURDIR)/objects
+
+# Actual Build Stuff
 test: build
 	go test ./...
 
@@ -33,12 +49,25 @@ bin-copy: build
 	cp ${GOPATH}/bin/server bin/
 	cp ${GOPATH}/bin/client bin/
 
+
+# Mucking with docker containers
 docker-build: bin-copy test
-	docker build . -t eparis/remote-shell:latest
+	docker build . -t $(CONTAINER)
 
 docker-run: docker-build
-	docker run --rm --privileged -v $(HOME)/.kube/config:/etc/remote-shell/serverKubeConfig -v $(CURDIR)/certs:/etc/remote-shell/certs/ --pid=host --network=host --log-driver=none eparis/remote-shell:latest
+	docker run --rm --privileged -v $(KUBECONFIG):/etc/remote-shell/serverKubeConfig -v $(CERTDIR):/etc/remote-shell/certs/ --pid=host --network=host --log-driver=none $(CONTAINER)
+
+docker-push: docker-build
+	docker push $(CONTAINER)
 
 docker-clean:
 	./docker-clean.sh
 
+
+# Launching containers on kubernetes
+deploy: docker-push deployment
+	kubectl apply -f $(APP)/local.deployment.yaml --record
+
+# updates the deployment.yaml with current build information and sets it to --dry-run
+deployment:
+	sed -e 's|@@IMAGE@@|$(CONTAINER)|' $(OBJECTDIR)/deployment.yaml > $(OBJECTDIR)/local.deployment.yaml

@@ -1,0 +1,38 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: remote-shell
+  annotations:
+    service.alpha.openshift.io/serving-cert-secret-name: serviceServingCert
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: remote-shell
+    spec:
+      containers:
+      - name: remote-shell-daemon
+        command:
+        - /server
+        image: @@IMAGE@@
+        env:
+        ports:
+        - name: grpc
+          containerPort: 12021
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256m
+          limits:
+            cpu: 100m
+            memory: 256m
+        volumeMounts:
+          # name must match the volume name below
+          - name: cert-volume
+            mountPath: /etc/remote-shell/certs/
+            readOnly: true
+      volumes:
+      - name: cert-volume
+        secret:
+          secretName: serviceServingCert

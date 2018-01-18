@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	_ "net/http/pprof"
 
 	"github.com/eparis/remote-shell/operations/util"
 
@@ -191,6 +192,8 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 	s.PathPrefix("/metrics").Handler(promhttp.Handler())
 	// Server the /static dir so users can download the client
 	s.PathPrefix("/static").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("/static"))))
+	// pprof loads itself to http.DefaultServeMux
+	s.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 
 	// Send everything else to the json->grpc gateway mux
 	router.PathPrefix("/").Handler(gwmux)
@@ -202,7 +205,7 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 
 	srv := &http.Server{
 		Addr:    localAddr,
-		Handler: r,
+		Handler: router,
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{*demoKeyPair},
 			NextProtos:   []string{"h2"},
