@@ -47,7 +47,7 @@ func doRun(cmd *cobra.Command, args []string) error {
 	}
 	token := config.BearerToken
 
-	creds, err := credentials.NewClientTLSFromFile("certs/CA.pem", serverAddr)
+	creds, err := credentials.NewClientTLSFromFile("certs/CA.crt", serverAddr)
 	if err != nil {
 		log.Fatalf("Failed to create TLS credentials %v", err)
 	}

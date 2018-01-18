@@ -13,13 +13,13 @@ var (
 )
 
 func initCerts() error {
-	serverKeyFile := filepath.Join(srvCfg.cfgDir, "certs", "server.key")
+	serverKeyFile := filepath.Join(srvCfg.cfgDir, "certs", "tls.key")
 	serverKey, err := ioutil.ReadFile(serverKeyFile)
 	if err != nil {
 		return err
 	}
 
-	serverPemFile := filepath.Join(srvCfg.cfgDir, "certs", "server.pem")
+	serverPemFile := filepath.Join(srvCfg.cfgDir, "certs", "tls.crt")
 	serverPem, err := ioutil.ReadFile(serverPemFile)
 	if err != nil {
 		return err

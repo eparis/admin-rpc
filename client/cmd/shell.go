@@ -42,7 +42,7 @@ func doShell(cmd *cobra.Command, args []string) error {
 	// Read in the user's command.
 	r := bufio.NewReader(os.Stdin)
 
-	creds, err := credentials.NewClientTLSFromFile("certs/CA.pem", serverAddr)
+	creds, err := credentials.NewClientTLSFromFile("certs/CA.crt", serverAddr)
 	if err != nil {
 		log.Fatalf("Failed to create TLS credentials %v", err)
 	}

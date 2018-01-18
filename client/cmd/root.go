@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	caFile         = "certs/CA.pem"
+	caFile         = "certs/CA.crt"
 	cfgDir         string
 	kubeConfigFile string
 	serverAddr     = fmt.Sprintf("localhost:%d", port)

@@ -11,4 +11,3 @@ CMD ["/server"]
 ADD config/ /etc/remote-shell/
 ADD bin/server /server
 ADD bin/client /static/client
-RUN chmod +x /server /static/client
