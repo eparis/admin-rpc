@@ -1,3 +1,8 @@
+Auth:
+  Namespace: default
+  Verb: get
+  Resource: pods
+  Version: v1
 #type Command struct {
 #        CmdName        string              `json:"cmdName" yaml:"cmdName"`
 #        Required       []string            `json:"requiredFlags,omitempty" yaml:"requiredFlags,omitempty"`

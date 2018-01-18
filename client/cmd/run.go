@@ -28,6 +28,7 @@ func init() {
 		Short: "A REST API client which provides role based operational access to machines",
 		RunE:  doRun,
 	}
+	runCmd.Flags().SetInterspersed(false)
 	rootCmd.AddCommand(runCmd)
 }
 

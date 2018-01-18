@@ -11,6 +11,7 @@ import (
 
 	pb "github.com/eparis/remote-shell/api"
 	"github.com/kr/pretty"
+	"github.com/mattn/go-shellwords"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -69,13 +70,18 @@ func doShell(cmd *cobra.Command, args []string) error {
 
 		// This strips off any trailing whitespace/carriage returns.
 		tCmd = strings.TrimSpace(tCmd)
-		tCmd2 := strings.Split(tCmd, " ")
 
-		// Parse their input.
-		cmdName := tCmd2[0]
-
-		//cmdArgs := []string{}
-		cmdArgs := tCmd2[1:]
+		args, err := shellwords.Parse(tCmd)
+		if err != nil {
+			fmt.Printf("Unable to parse command; %v", err)
+			continue
+		}
+		if len(args) < 1 {
+			// User hit enter with no command, just look for another one.
+			continue
+		}
+		cmdName := args[0]
+		cmdArgs := args[1:]
 
 		// Close the connection if the user enters exit.
 		if cmdName == "exit" {
@@ -91,7 +97,8 @@ func doShell(cmd *cobra.Command, args []string) error {
 		ctx = attachToken(ctx, token)
 		stream, err := c.SendCommand(ctx, req)
 		if err != nil {
-			log.Fatalf("Command failed: %v", err)
+			fmt.Printf("Command failed: %v\n", err)
+			continue
 		}
 
 		for {
@@ -100,7 +107,8 @@ func doShell(cmd *cobra.Command, args []string) error {
 				if err == io.EOF {
 					break
 				}
-				log.Fatalf("%v.SendCommand(_) = _, %v", c, err)
+				fmt.Printf("Command failed: %v\n", err)
+				break
 			}
 			fmt.Printf("%s", res.Output)
 		}

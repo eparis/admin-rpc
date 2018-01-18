@@ -1,3 +1,8 @@
+auth:
+  namespace: default
+  verb: get
+  resource: pods
+  version: v1
 cmdName: "tuned-adm"
 requiredFlags:
 permittedShortFlags:

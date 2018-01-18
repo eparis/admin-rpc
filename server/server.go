@@ -109,10 +109,10 @@ func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Ha
 
 // Register all of the operations which are defined with the server
 func registerAllOperations(grpcServer *grpc.Server) error {
-	if err := command.Load(srvCfg.cfgDir); err != nil {
+	sndCmd, err := command.NewSendCommand(srvCfg.cfgDir)
+	if err != nil {
 		return err
 	}
-	sndCmd := command.NewSendCommand()
 	pb.RegisterRemoteCommandServer(grpcServer, sndCmd)
 
 	return nil

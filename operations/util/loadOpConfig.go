@@ -9,10 +9,12 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+type InitializeConfig func(interface{}) error
+
 // LoadConfig takes a directory and a pointer to a slice of types. For every
 // file in the directory which ends in .yaml or .yml it will decode that file
 // into and append the results to the slice provided
-func LoadConfig(cfgDir string, ref interface{}) error {
+func LoadConfig(cfgDir string, initFunc InitializeConfig, ref interface{}) error {
 	files, err := ioutil.ReadDir(cfgDir)
 	if err != nil {
 		return err
@@ -27,8 +29,9 @@ func LoadConfig(cfgDir string, ref interface{}) error {
 		if !file.Mode().IsRegular() {
 			fmt.Printf("  Skipping non-file: %s\n", path)
 		}
-		// Every directory has a "config" file, ignore that
-		if filepath.Base(path) == "config" {
+		// ignore files we know aren't relevant
+		base := filepath.Base(path)
+		if base == "config" || base == "example.yaml.template" {
 			continue
 		}
 		// probably should check for *.yaml or *.yml
@@ -43,6 +46,9 @@ func LoadConfig(cfgDir string, ref interface{}) error {
 		}
 		data := reflect.New(slice.Type().Elem())
 		if err := yaml.Unmarshal(cfg, data.Interface()); err != nil {
+			return err
+		}
+		if err := initFunc(data.Interface()); err != nil {
 			return err
 		}
 		slice.Set(reflect.Append(slice, data.Elem()))

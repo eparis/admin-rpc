@@ -5,17 +5,13 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/kr/pretty"
+	//"github.com/kr/pretty"
 	"golang.org/x/net/context"
 	//"google.golang.org/grpc/metadata"
 	authzv1 "k8s.io/api/authorization/v1"
 
 	pb "github.com/eparis/remote-shell/api"
 	"github.com/eparis/remote-shell/operations/util"
-)
-
-var (
-	allCommands = []Command{}
 )
 
 type argRegex []*regexp.Regexp
@@ -32,7 +28,14 @@ func (a argRegex) valid(val string) bool {
 	return false
 }
 
+type CommandAuth struct {
+	Namespace string `json:"namespace" yaml:"namespace"`
+	Verb      string `json:"verb" yaml:"verb"`
+	Resource  string `json:"resource" yaml:"resource"`
+	Version   string `json:"version" yaml:"version"`
+}
 type Command struct {
+	Auth           CommandAuth         `json:"auth" yaml:"auth"`
 	CmdName        string              `json:"cmdName" yaml:"cmdName"`
 	Required       []string            `json:"requiredFlags,omitempty" yaml:"requiredFlags,omitempty"`
 	PermittedShort []string            `json:"permittedShortFlags,omitempty" yaml:"permittedShortFlags,omitempty"`
@@ -71,49 +74,8 @@ func (cmd *Command) buildRegex() error {
 	return nil
 }
 
-// Load loads the commands from the configuration directory specified
-func Load(cfgDir string) error {
-	cfgDir = filepath.Join(cfgDir, "command")
-	var commandConfigs []Command
-	err := util.LoadConfig(cfgDir, &commandConfigs)
-	if err != nil {
-		return err
-	}
-
-	if len(commandConfigs) == 0 {
-		return fmt.Errorf("No commands defined in: %s\n", cfgDir)
-	}
-
-	for _, cmd := range commandConfigs {
-		cmdName := cmd.CmdName
-		fmt.Printf("Processing Regexp For: %s\n", cmdName)
-		if _, ok := getCommand(cmdName, []string{}); ok {
-			return fmt.Errorf("Same command registered twice: %s\n", cmdName)
-		}
-		err := cmd.buildRegex()
-		if err != nil {
-			return err
-		}
-		allCommands = append(allCommands, cmd)
-	}
-	return nil
-}
-
-// return the Command and a bool indicating if it was found
-func getCommand(cmdName string, cmdArgs []string) (Command, bool) {
-	for _, cmd := range allCommands {
-		if cmd.CmdName == cmdName {
-			return cmd, true
-		}
-	}
-	return Command{}, false
-}
-
-// Server is used to implement the RemoteCommandServer
-type sndCmd struct{}
-
 // authz checks if the requestor has permission to run the command in question
-func (s *sndCmd) authz(in *pb.CommandRequest, ctx context.Context) error {
+func (cmd *Command) authz(ctx context.Context) error {
 	tokenInfo := util.GetToken(ctx)
 	clientset := util.GetClientset(ctx)
 
@@ -131,10 +93,10 @@ func (s *sndCmd) authz(in *pb.CommandRequest, ctx context.Context) error {
 			UID:    tokenInfo.Status.User.UID,
 			Extra:  authzExtras,
 			ResourceAttributes: &authzv1.ResourceAttributes{
-				Namespace: "default",
-				Verb:      "get",
-				Resource:  "pods",
-				Version:   "v1",
+				Namespace: cmd.Auth.Namespace,
+				Verb:      cmd.Auth.Verb,
+				Resource:  cmd.Auth.Resource,
+				Version:   cmd.Auth.Version,
 			},
 		},
 	}
@@ -145,16 +107,50 @@ func (s *sndCmd) authz(in *pb.CommandRequest, ctx context.Context) error {
 	}
 
 	if !sar.Status.Allowed {
-		return fmt.Errorf("user: %v is not allowed to get pods in the default namespace. Refusing", tokenInfo.Status.User.Username)
+		return fmt.Errorf("user: %q is not allowed to %q %q in the %q namespace. Refusing", tokenInfo.Status.User.Username, cmd.Auth.Verb, cmd.Auth.Resource, cmd.Auth.Namespace)
 	}
 
 	return nil
 }
 
+// Server is used to implement the RemoteCommandServer
+type sndCmd struct {
+	commands map[string][]Command
+}
+
+// return the Command and a bool indicating if it was found
+func (s *sndCmd) getCommand(cmdName string, cmdArgs []string, ctx context.Context) (Command, error) {
+	commands, ok := s.commands[cmdName]
+	if !ok {
+		return Command{}, fmt.Errorf("Command not found: %s", cmdName)
+	}
+	var firstAuthErr error
+	var err error
+	for _, cmd := range commands {
+		if err = cmd.valid(cmdName, cmdArgs); err == nil {
+			if err = cmd.authz(ctx); err == nil {
+				// We found a cmd the user could execute. Go Go Go
+				return cmd, nil
+			}
+			// record the auth error
+			if firstAuthErr == nil {
+				firstAuthErr = err
+			}
+			continue
+		}
+	}
+	if err == nil {
+		err = fmt.Errorf("Somehow we didn't find a command the user could execute and we didn't find an error!\n")
+	}
+	if firstAuthErr != nil {
+		err = firstAuthErr
+	}
+	return Command{}, err
+}
+
 // SendCommand receives the command from the client and then executes it server-side.
 // It returns a commmand reply consisting of the output of the command.
 func (s *sndCmd) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_SendCommandServer) error {
-	fmt.Printf("HERE!\n")
 	var cmdName = in.CmdName
 	var cmdArgs = in.CmdArgs
 
@@ -171,23 +167,43 @@ func (s *sndCmd) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_Send
 	   }
 	   pretty.Println(md)
 	*/
-	cmd, found := getCommand(cmdName, cmdArgs)
-	if !found {
-		return fmt.Errorf("Command not found: %s", cmdName)
-	}
-
-	pretty.Println(cmd)
-	if err := cmd.valid(cmdName, cmdArgs); err != nil {
-		return err
-	}
-
-	if err := s.authz(in, ctx); err != nil {
+	_, err := s.getCommand(cmdName, cmdArgs, ctx)
+	if err != nil {
 		return err
 	}
 
 	return util.ExecuteCmdInitNS(cmdName, cmdArgs, stream)
 }
 
-func NewSendCommand() *sndCmd {
-	return &sndCmd{}
+func initCommandConfig(in interface{}) error {
+	cmd, ok := in.(*Command)
+	if !ok {
+		return fmt.Errorf("initCommandConfig called on something other than a Command!\n")
+	}
+	if err := cmd.buildRegex(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func NewSendCommand(cfgDir string) (*sndCmd, error) {
+	newCmd := &sndCmd{
+		commands: map[string][]Command{},
+	}
+	cfgDir = filepath.Join(cfgDir, "command")
+	var commandConfigs []Command
+	err := util.LoadConfig(cfgDir, initCommandConfig, &commandConfigs)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(commandConfigs) == 0 {
+		return nil, fmt.Errorf("No commands defined in: %s\n", cfgDir)
+	}
+
+	for _, cmd := range commandConfigs {
+		cmdName := cmd.CmdName
+		newCmd.commands[cmdName] = append(newCmd.commands[cmdName], cmd)
+	}
+	return newCmd, nil
 }
