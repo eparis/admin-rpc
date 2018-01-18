@@ -39,9 +39,10 @@ import (
 )
 
 var (
-	_          = pretty.Print
-	kubeConfig *rest.Config
-	localAddr  = fmt.Sprintf("localhost:%d", port)
+	_           = pretty.Print
+	kubeConfig  *rest.Config
+	serviceName = "remote-shell.eparis.svc"
+	localAddr   = fmt.Sprintf("localhost:%d", port)
 )
 
 // validateToken will ask the Kubernetes API Server to do a TokenReview
@@ -144,8 +145,13 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 		}),
 	}
 
+	creds, err := credentials.NewServerTLSFromFile(serverCrtFile, serverKeyFile)
+	if err != nil {
+		return err
+	}
 	serverOpts := []grpc.ServerOption{
-		grpc.Creds(credentials.NewClientTLSFromCert(demoCertPool, localAddr)),
+		grpc.Creds(creds),
+		//grpc.Creds(credentials.NewClientTLSFromCert(demoCertPool, localAddr)),
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(),
 			grpc_logrus.StreamServerInterceptor(logrus.NewEntry(logrus.New()), logrusOpts...),
@@ -170,6 +176,7 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 	// After all your registrations, make sure all of the Prometheus metrics are initialized.
 	grpc_prometheus.Register(grpcServer)
 
+	// Builds the json gateway to the GRPC endpoints
 	dcreds := credentials.NewTLS(&tls.Config{
 		ServerName: localAddr,
 		RootCAs:    demoCertPool,
@@ -177,8 +184,6 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 	dopts := []grpc.DialOption{
 		grpc.WithTransportCredentials(dcreds),
 	}
-
-	// Load all GRPC endpoints into the json gateway mux
 	gwmux := runtime.NewServeMux()
 	err = pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, localAddr, dopts)
 	if err != nil {

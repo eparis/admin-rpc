@@ -49,6 +49,9 @@ bin-copy: build
 	cp ${GOPATH}/bin/server bin/
 	cp ${GOPATH}/bin/client bin/
 
+test-cmd:
+	client run ls -l /
+	curl -s -k -H "Authorization: Bearer ${TOKEN}" -d '{"cmdName": "ls", "cmdArgs": ["-l", "/"]}' https://127.0.0.1:12021/v1/command | jq -r '.result.output' | base64 -d
 
 # Mucking with docker containers
 docker-build: bin-copy test

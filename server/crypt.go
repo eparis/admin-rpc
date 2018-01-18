@@ -8,30 +8,32 @@ import (
 )
 
 var (
-	demoKeyPair  *tls.Certificate
-	demoCertPool *x509.CertPool
+	serverKeyFile string
+	serverCrtFile string
+	demoKeyPair   *tls.Certificate
+	demoCertPool  *x509.CertPool
 )
 
 func initCerts() error {
-	serverKeyFile := filepath.Join(srvCfg.cfgDir, "certs", "tls.key")
+	serverKeyFile = filepath.Join(srvCfg.cfgDir, "certs", "tls.key")
 	serverKey, err := ioutil.ReadFile(serverKeyFile)
 	if err != nil {
 		return err
 	}
 
-	serverPemFile := filepath.Join(srvCfg.cfgDir, "certs", "tls.crt")
-	serverPem, err := ioutil.ReadFile(serverPemFile)
+	serverCrtFile = filepath.Join(srvCfg.cfgDir, "certs", "tls.crt")
+	serverCrt, err := ioutil.ReadFile(serverCrtFile)
 	if err != nil {
 		return err
 	}
 
-	pair, err := tls.X509KeyPair(serverPem, serverKey)
+	pair, err := tls.X509KeyPair(serverCrt, serverKey)
 	if err != nil {
 		panic(err)
 	}
 	demoKeyPair = &pair
 	demoCertPool = x509.NewCertPool()
-	ok := demoCertPool.AppendCertsFromPEM(serverPem)
+	ok := demoCertPool.AppendCertsFromPEM(serverCrt)
 	if !ok {
 		panic("bad certs")
 	}
