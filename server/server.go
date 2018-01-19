@@ -41,7 +41,8 @@ import (
 var (
 	_          = pretty.Print
 	kubeConfig *rest.Config
-	bindAddr   = "127.0.0.1:12021"
+	bindAddr   = ":12021"
+	localAddr  = "127.0.0.1:12021"
 )
 
 // validateToken will ask the Kubernetes API Server to do a TokenReview
@@ -179,7 +180,7 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 		grpc.WithTransportCredentials(dcreds),
 	}
 	gwmux := runtime.NewServeMux()
-	err = pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, bindAddr, dopts)
+	err = pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, localAddr, dopts)
 	if err != nil {
 		log.Fatal("RegisterRemoteCommandHandlerFromEndpoint: %v\n", err)
 	}
