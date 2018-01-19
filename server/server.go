@@ -39,10 +39,9 @@ import (
 )
 
 var (
-	_           = pretty.Print
-	kubeConfig  *rest.Config
-	serviceName = "remote-shell.eparis.svc"
-	localAddr   = fmt.Sprintf("localhost:%d", port)
+	_          = pretty.Print
+	kubeConfig *rest.Config
+	bindAddr   = "127.0.0.1:12021"
 )
 
 // validateToken will ask the Kubernetes API Server to do a TokenReview
@@ -145,13 +144,8 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 		}),
 	}
 
-	creds, err := credentials.NewServerTLSFromFile(serverCrtFile, serverKeyFile)
-	if err != nil {
-		return err
-	}
 	serverOpts := []grpc.ServerOption{
-		grpc.Creds(creds),
-		//grpc.Creds(credentials.NewClientTLSFromCert(demoCertPool, localAddr)),
+		grpc.Creds(credentials.NewServerTLSFromCert(demoKeyPair)),
 		grpc_middleware.WithStreamServerChain(
 			grpc_ctxtags.StreamServerInterceptor(),
 			grpc_logrus.StreamServerInterceptor(logrus.NewEntry(logrus.New()), logrusOpts...),
@@ -178,14 +172,14 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 
 	// Builds the json gateway to the GRPC endpoints
 	dcreds := credentials.NewTLS(&tls.Config{
-		ServerName: localAddr,
-		RootCAs:    demoCertPool,
+		ServerName: srvCfg.serviceName,
+		RootCAs:    caCertPool,
 	})
 	dopts := []grpc.DialOption{
 		grpc.WithTransportCredentials(dcreds),
 	}
 	gwmux := runtime.NewServeMux()
-	err = pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, localAddr, dopts)
+	err = pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, bindAddr, dopts)
 	if err != nil {
 		log.Fatal("RegisterRemoteCommandHandlerFromEndpoint: %v\n", err)
 	}
@@ -207,13 +201,13 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 	// Send everything else to the json->grpc gateway mux
 	router.PathPrefix("/").Handler(gwmux)
 
-	conn, err := net.Listen("tcp", srvCfg.bindAddr)
+	conn, err := net.Listen("tcp", bindAddr)
 	if err != nil {
 		log.Fatalf("Failed to listen %v", err)
 	}
 
 	srv := &http.Server{
-		Addr:    localAddr,
+		Addr:    bindAddr,
 		Handler: router,
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{*demoKeyPair},

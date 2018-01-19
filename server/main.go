@@ -23,19 +23,15 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
-	port = 12021
-)
-
 type serverConfig struct {
-	cfgDir   string
-	bindAddr string
+	cfgDir      string
+	serviceName string
 }
 
 var (
 	srvCfg = serverConfig{
-		cfgDir:   "/etc/remote-shell",
-		bindAddr: fmt.Sprintf(":%d", port),
+		cfgDir:      "/etc/remote-shell",
+		serviceName: "remote-shell.eparis.svc",
 	}
 
 	rootCmd = &cobra.Command{
@@ -49,7 +45,6 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&srvCfg.cfgDir, "config-dir", srvCfg.cfgDir, "config directory")
-	rootCmd.PersistentFlags().StringVar(&srvCfg.bindAddr, "bind-addr", srvCfg.bindAddr, "Address to bind")
 }
 
 func initConfig() {

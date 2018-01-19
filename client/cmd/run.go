@@ -43,19 +43,18 @@ func doRun(cmd *cobra.Command, args []string) error {
 	}
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile)
 	if err != nil {
-		log.Fatal("Unable to load kubeconfig: %v\n", err)
+		log.Fatalf("Unable to load kubeconfig: %v\n", err)
 	}
 	token := config.BearerToken
 
-	creds, err := credentials.NewClientTLSFromFile("certs/CA.crt", serverAddr)
+	creds, err := credentials.NewClientTLSFromFile("certs/CA.crt", "remote-shell.eparis.svc")
 	if err != nil {
 		log.Fatalf("Failed to create TLS credentials %v", err)
 	}
 	dopts := []grpc.DialOption{grpc.WithDefaultCallOptions()}
 	dopts = append(dopts, grpc.WithTransportCredentials(creds))
-	// Set up a connection to the server.
-	conn, err := grpc.Dial(serverAddr, dopts...)
 
+	conn, err := grpc.Dial(serverAddr, dopts...)
 	if err != nil {
 		log.Fatalf("Could not connect: %v", err)
 	}

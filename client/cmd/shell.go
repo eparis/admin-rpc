@@ -39,10 +39,8 @@ func doShell(cmd *cobra.Command, args []string) error {
 		log.Fatal("Unable to load kubeconfig: %v\n", err)
 	}
 	token := config.BearerToken
-	// Read in the user's command.
-	r := bufio.NewReader(os.Stdin)
 
-	creds, err := credentials.NewClientTLSFromFile("certs/CA.crt", serverAddr)
+	creds, err := credentials.NewClientTLSFromFile("certs/CA.crt", "remote-shell.eparis.svc")
 	if err != nil {
 		log.Fatalf("Failed to create TLS credentials %v", err)
 	}
@@ -62,6 +60,9 @@ func doShell(cmd *cobra.Command, args []string) error {
 	c := pb.NewRemoteCommandClient(conn)
 
 	fmt.Printf("\nYou have successfully connected to %s! To disconnect, hit ctrl+c or type exit.\n", serverAddr)
+
+	// Read in the user's command.
+	r := bufio.NewReader(os.Stdin)
 
 	// Keep connection alive until ctrl+c or exit is entered.
 	for true {
