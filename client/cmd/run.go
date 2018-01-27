@@ -30,7 +30,7 @@ func doRun(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("no command to execute prodived")
 	}
-	client, ctx, err := GetGRPCCLient()
+	client, ctx, err := GetGRPCClient()
 	if err != nil {
 		return err
 	}

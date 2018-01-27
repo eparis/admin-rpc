@@ -17,7 +17,7 @@ func attachToken(ctx context.Context, token string) context.Context {
 	return metautils.NiceMD(md).ToOutgoing(ctx)
 }
 
-func GetGRPCCLient() (pb.RemoteCommandClient, context.Context, error) {
+func GetGRPCClient() (pb.RemoteCommandClient, context.Context, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Unable to load kubeconfig: %v\n", err)

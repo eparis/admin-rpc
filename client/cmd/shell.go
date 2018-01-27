@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strings"
 
@@ -13,10 +12,6 @@ import (
 	"github.com/kr/pretty"
 	"github.com/mattn/go-shellwords"
 	"github.com/spf13/cobra"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
@@ -34,31 +29,10 @@ func init() {
 }
 
 func doShell(cmd *cobra.Command, args []string) error {
-	config, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile)
+	client, ctx, err := GetGRPCClient()
 	if err != nil {
-		log.Fatal("Unable to load kubeconfig: %v\n", err)
+		return err
 	}
-	token := config.BearerToken
-
-	creds, err := credentials.NewClientTLSFromFile("certs/CA.crt", "remote-shell.eparis.svc")
-	if err != nil {
-		log.Fatalf("Failed to create TLS credentials %v", err)
-	}
-	dopts := []grpc.DialOption{grpc.WithDefaultCallOptions()}
-	dopts = append(dopts, grpc.WithTransportCredentials(creds))
-	// Set up a connection to the server.
-	conn, err := grpc.Dial(serverAddr, dopts...)
-
-	if err != nil {
-		log.Fatalf("Could not connect: %v", err)
-	}
-
-	// Close the connection after main returns.
-	defer conn.Close()
-
-	// Create the client
-	c := pb.NewRemoteCommandClient(conn)
-
 	fmt.Printf("\nYou have successfully connected to %s! To disconnect, hit ctrl+c or type exit.\n", serverAddr)
 
 	// Read in the user's command.
@@ -94,9 +68,7 @@ func doShell(cmd *cobra.Command, args []string) error {
 			CmdName: cmdName,
 			CmdArgs: cmdArgs,
 		}
-		ctx := context.Background()
-		ctx = attachToken(ctx, token)
-		stream, err := c.SendCommand(ctx, req)
+		stream, err := client.SendCommand(ctx, req)
 		if err != nil {
 			fmt.Printf("Command failed: %v\n", err)
 			continue
