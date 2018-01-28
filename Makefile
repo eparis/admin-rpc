@@ -72,12 +72,9 @@ docker-clean:
 
 
 # Launching containers on kubernetes
-deploy: docker-push deployment
+deploy: docker-push
 	kubectl apply -f $(OBJECTDIR)/service.yaml
-	kubectl apply -f $(OBJECTDIR)/local.deployment.yaml --record
-
-# updates the deployment.yaml with current build information and sets it to --dry-run
-deployment:
-	sed -e 's|@@IMAGE@@|$(CONTAINER)|' $(OBJECTDIR)/deployment.yaml > $(OBJECTDIR)/local.deployment.yaml
+	sed -e 's|@@IMAGE@@|$(CONTAINER)|' $(OBJECTDIR)/daemonset.yaml > $(OBJECTDIR)/local.daemonset.yaml
+	kubectl apply -f $(OBJECTDIR)/local.daemonset.yaml --record
 
 .PHONY: client server

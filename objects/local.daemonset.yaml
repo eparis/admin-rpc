@@ -1,20 +1,24 @@
 apiVersion: extensions/v1beta1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: remote-shell
+  labels:
+    app: openshift-rpc-daemon
 spec:
-  replicas: 2
+  selector:
+    matchLabels:
+      app: openshift-rpc-daemon
   template:
     metadata:
       labels:
-        app: remote-shell
+        app: openshift-rpc-daemon
     spec:
       hostPID: true
       containers:
       - name: remote-shell-daemon
         command:
         - /server
-        image: @@IMAGE@@
+        image: docker.io/eparis/remote-shell:2018-01-28-500892e
         env:
         ports:
         - name: grpc

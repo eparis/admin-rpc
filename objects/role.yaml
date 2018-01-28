@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Role
+metadata:
+  namespace: eparis
+  name: daemonset-creater
+rules:
+- apiGroups:
+  - extensions
+  resources:
+  - daemonsets
+  verbs:
+  - create

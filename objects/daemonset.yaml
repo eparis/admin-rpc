@@ -1,13 +1,17 @@
 apiVersion: extensions/v1beta1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: remote-shell
+  labels:
+    app: openshift-rpc-daemon
 spec:
-  replicas: 2
+  selector:
+    matchLabels:
+      app: openshift-rpc-daemon
   template:
     metadata:
       labels:
-        app: remote-shell
+        app: openshift-rpc-daemon
     spec:
       hostPID: true
       containers:

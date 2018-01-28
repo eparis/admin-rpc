@@ -1,0 +1,14 @@
+apiVersion: v1
+groupNames: null
+kind: RoleBinding
+metadata:
+  name: daemonset-creater
+  namespace: eparis
+roleRef:
+  name: daemonset-creater
+  namespace: eparis
+subjects:
+- kind: User
+  name: eparis@redhat.com
+userNames:
+- eparis@redhat.com
