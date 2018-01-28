@@ -122,7 +122,7 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 		// creates the in-cluster config
 		kubeConfig, err = rest.InClusterConfig()
 		if err != nil {
-			log.Fatal("Unable to load kubeconfig in cluster or from %s: %v\n", serverKubeConfig, err)
+			log.Fatalf("Unable to load kubeconfig in cluster or from %s: %v\n", serverKubeConfig, err)
 		}
 	}
 

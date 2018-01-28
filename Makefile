@@ -17,9 +17,13 @@ OBJECTDIR ?= $(CURDIR)/objects
 test: build
 	go test ./...
 
-build: protobuf
+server:
 	go install github.com/eparis/remote-shell/server
+
+client:
 	go install github.com/eparis/remote-shell/client
+
+build: protobuf server client
 
 clean:
 	-rm client/client
@@ -75,3 +79,5 @@ deploy: docker-push deployment
 # updates the deployment.yaml with current build information and sets it to --dry-run
 deployment:
 	sed -e 's|@@IMAGE@@|$(CONTAINER)|' $(OBJECTDIR)/deployment.yaml > $(OBJECTDIR)/local.deployment.yaml
+
+.PHONY: client server
