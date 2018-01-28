@@ -30,6 +30,8 @@ spec:
           - name: cert-volume
             mountPath: /etc/remote-shell/certs/
             readOnly: true
+        securityContext:
+          privileged: true
       volumes:
       - name: cert-volume
         secret:
