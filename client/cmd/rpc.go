@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 
 	pb "github.com/eparis/remote-shell/api"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
@@ -34,7 +35,37 @@ var (
 	_ = pretty.Print
 )
 
-func ForwardToPod(kubeConfig *rest.Config) error {
+// getPods returns all running pods in a map from nodename to pod
+func getPods(clientset *kubernetes.Clientset, namespace string) (map[string]corev1.Pod, error) {
+	podList, err := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	pods := podList.Items
+	if len(pods) < 1 {
+		return nil, fmt.Errorf("No pods found in namespace: %s\n", namespace)
+	}
+	out := make(map[string]corev1.Pod)
+
+	for _, pod := range pods {
+		if pod.Status.Phase != corev1.PodRunning {
+			continue
+		}
+		out[pod.Spec.NodeName] = pod
+	}
+	return out, nil
+}
+
+func getNodes(pods map[string]corev1.Pod) []string {
+	nodes := make([]string, 0, len(pods))
+	for nodeName := range pods {
+		nodes = append(nodes, nodeName)
+	}
+	sort.Strings(nodes)
+	return nodes
+}
+
+func ForwardToPod(kubeConfig *rest.Config, pod corev1.Pod) error {
 	contentConfig := dynamic.ContentConfig()
 	dc, err := discovery.NewDiscoveryClientForConfig(kubeConfig)
 	if err != nil {
@@ -59,26 +90,6 @@ func ForwardToPod(kubeConfig *rest.Config) error {
 		Version: preferredVersion.Version,
 	}
 	kubeConfig.ContentConfig = contentConfig
-
-	clientset, err := kubernetes.NewForConfig(kubeConfig)
-	if err != nil {
-		return err
-	}
-
-	podList, err := clientset.CoreV1().Pods(namespace).List(metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	pods := podList.Items
-	if len(pods) < 1 {
-		return fmt.Errorf("No pods found in namespace: %s\n", namespace)
-	}
-	pod := pods[0]
-	fmt.Printf("Connecting to pod: %s\n", pod.ObjectMeta.Name)
-
-	if pod.Status.Phase != corev1.PodRunning {
-		return fmt.Errorf("Unable to forward port because pod is not running. Current status=%v", pod.Status.Phase)
-	}
 
 	stopChan := make(chan struct{}, 1)
 	readyChan := make(chan struct{}, 1)
@@ -136,7 +147,25 @@ func GetGRPCClient() (pb.RemoteCommandClient, context.Context, error) {
 	}
 	token := kubeConfig.BearerToken
 
-	if err = ForwardToPod(kubeConfig); err != nil {
+	clientset, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pods, err := getPods(clientset, namespace)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nodes := getNodes(pods)
+
+	// just pick the first node
+	nodeName := nodes[0]
+	pod := pods[nodeName]
+
+	fmt.Printf("Connecting to node: %s\n", nodeName)
+
+	if err = ForwardToPod(kubeConfig, pod); err != nil {
 		return nil, nil, fmt.Errorf("Unable to forward to target pod: %v\n", err)
 	}
 
