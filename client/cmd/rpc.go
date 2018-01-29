@@ -140,7 +140,7 @@ func attachToken(ctx context.Context, token string) context.Context {
 	return metautils.NiceMD(md).ToOutgoing(ctx)
 }
 
-func GetGRPCClient() (pb.RemoteCommandClient, context.Context, error) {
+func GetGRPCClient(node string) (pb.RemoteCommandClient, context.Context, error) {
 	kubeConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Unable to load kubeconfig: %v\n", err)
@@ -157,13 +157,13 @@ func GetGRPCClient() (pb.RemoteCommandClient, context.Context, error) {
 		return nil, nil, err
 	}
 
-	nodes := getNodes(pods)
-
 	// just pick the first node
-	nodeName := nodes[0]
-	pod := pods[nodeName]
+	pod, ok := pods[node]
+	if !ok {
+		return nil, nil, fmt.Errorf("Unable to find pod on node: %s", node)
+	}
 
-	fmt.Printf("Connecting to node: %s\n", nodeName)
+	fmt.Printf("Connecting to node: %s\n", node)
 
 	if err = ForwardToPod(kubeConfig, pod); err != nil {
 		return nil, nil, fmt.Errorf("Unable to forward to target pod: %v\n", err)

@@ -25,11 +25,12 @@ func init() {
 		Short: "A simple \"shell\" on the remote server. Easy to run multiple commands in a row",
 		RunE:  doShell,
 	}
+	addNodeFlag(shellCmd)
 	rootCmd.AddCommand(shellCmd)
 }
 
 func doShell(cmd *cobra.Command, args []string) error {
-	client, ctx, err := GetGRPCClient()
+	client, ctx, err := GetGRPCClient(node)
 	if err != nil {
 		return err
 	}
