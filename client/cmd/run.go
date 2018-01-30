@@ -19,6 +19,7 @@ var (
 func addNodeFlag(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&node, "node", "", "Where to run the command")
 	cmd.MarkFlagRequired("node")
+	cmd.MarkFlagCustom("node", "__client_get_nodes")
 }
 
 func init() {

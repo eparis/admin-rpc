@@ -15,21 +15,53 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
-// completionsCmd represents the journalctl command
-var completionsCmd = &cobra.Command{
-	Use:    "genbashcompletion",
-	Short:  "Generate bash completions",
-	Hidden: true,
-	RunE: func(cmd *cobra.Command, cmdArgs []string) error {
-		return rootCmd.GenBashCompletion(os.Stdout)
-	},
+const (
+	customBashCompletionFuncs = `# Print all nodes where the rpc pod is running"
+__client_get_nodes()
+{
+    local client_out
+    if client_out=($(client bashcompletion nodes 2>/dev/null)); then
+        COMPREPLY=( $( compgen -W "${client_out[*]}" -- "$cur" ) )
+    fi
 }
+`
+)
 
 func init() {
+	completionsCmd := &cobra.Command{
+		Use:    "bashcompletion",
+		Short:  "Generate bash completions",
+		Hidden: true,
+		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
+			return rootCmd.GenBashCompletion(os.Stdout)
+		},
+	}
 	rootCmd.AddCommand(completionsCmd)
+
+	getNodesCmd := &cobra.Command{
+		Use: "nodes",
+		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
+			_, clientset, err := getClientset()
+			if err != nil {
+				return err
+			}
+			pods, err := getPods(clientset, namespace)
+			if err != nil {
+				return err
+			}
+			nodes := getNodes(pods)
+
+			for _, node := range nodes {
+				fmt.Fprintf(os.Stdout, "%s ", node)
+			}
+			return nil
+		},
+	}
+	completionsCmd.AddCommand(getNodesCmd)
 }

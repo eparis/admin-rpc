@@ -39,6 +39,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   filepath.Base(os.Args[0]),
 	Short: "A REST API client which provides role based operational access to machines",
+	BashCompletionFunction: customBashCompletionFuncs,
 }
 
 func init() {

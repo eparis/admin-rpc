@@ -140,24 +140,31 @@ func attachToken(ctx context.Context, token string) context.Context {
 	return metautils.NiceMD(md).ToOutgoing(ctx)
 }
 
-func GetGRPCClient(node string) (pb.RemoteCommandClient, context.Context, error) {
+func getClientset() (*rest.Config, *kubernetes.Clientset, error) {
 	kubeConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Unable to load kubeconfig: %v\n", err)
 	}
-	token := kubeConfig.BearerToken
 
 	clientset, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
 		return nil, nil, err
 	}
+	return kubeConfig, clientset, nil
+}
+
+func GetGRPCClient(node string) (pb.RemoteCommandClient, context.Context, error) {
+	kubeConfig, clientset, err := getClientset()
+	if err != nil {
+		return nil, nil, err
+	}
+	token := kubeConfig.BearerToken
 
 	pods, err := getPods(clientset, namespace)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// just pick the first node
 	pod, ok := pods[node]
 	if !ok {
 		return nil, nil, fmt.Errorf("Unable to find pod on node: %s", node)
@@ -169,7 +176,7 @@ func GetGRPCClient(node string) (pb.RemoteCommandClient, context.Context, error)
 		return nil, nil, fmt.Errorf("Unable to forward to target pod: %v\n", err)
 	}
 
-	creds, err := credentials.NewClientTLSFromFile("certs/CA.crt", "remote-shell.eparis.svc")
+	creds, err := credentials.NewClientTLSFromFile("certs/CA.crt", "rpc.eparis.svc")
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create TLS credentials %v", err)
 	}

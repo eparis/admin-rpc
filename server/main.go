@@ -31,7 +31,7 @@ type serverConfig struct {
 var (
 	srvCfg = serverConfig{
 		cfgDir:      "/etc/remote-shell",
-		serviceName: "remote-shell.eparis.svc",
+		serviceName: "rpc.eparis.svc",
 	}
 
 	rootCmd = &cobra.Command{
