@@ -5,11 +5,8 @@ GIT := $(shell git rev-parse --short HEAD)
 TAG ?= $(DATE)-$(GIT)
 
 REPO ?= docker.io/eparis
-APP ?= remote-shell
+APP ?= admin-rpc
 CONTAINER := $(REPO)/$(APP):$(TAG)
-
-KUBECONFIG ?= $(HOME)/.kube/config
-CERTDIR ?= $(CURDIR)/certs
 
 OBJECTDIR ?= $(CURDIR)/objects
 
@@ -18,10 +15,10 @@ test: build
 	go test ./...
 
 server:
-	go install github.com/eparis/remote-shell/server
+	go install github.com/eparis/admin-rpc/server
 
 client:
-	go install github.com/eparis/remote-shell/client
+	go install github.com/eparis/admin-rpc/client
 
 build: protobuf server client
 
@@ -30,7 +27,7 @@ clean:
 	-rm server/server
 
 generate:
-	go generate github.com/eparis/remote-shell/...
+	go generate github.com/eparis/admin-rpc/...
 
 protobuf: generate
 	protoc -I/usr/local/include -I. \
@@ -60,9 +57,6 @@ test-cmd:
 # Mucking with docker containers
 docker-build: bin-copy test
 	docker build . -t $(CONTAINER)
-
-docker-run: docker-build
-	docker run --rm --privileged -v $(KUBECONFIG):/etc/remote-shell/serverKubeConfig -v $(CERTDIR):/etc/remote-shell/certs/ --pid=host --network=host --log-driver=none $(CONTAINER)
 
 docker-push: docker-build
 	docker push $(CONTAINER)

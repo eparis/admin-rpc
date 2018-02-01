@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"sort"
 
-	pb "github.com/eparis/remote-shell/api"
+	pb "github.com/eparis/admin-rpc/api"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/kr/pretty"
 	"golang.org/x/net/context"

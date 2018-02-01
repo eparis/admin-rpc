@@ -14,7 +14,7 @@
 
 package main
 
-import "github.com/eparis/remote-shell/client/cmd"
+import "github.com/eparis/admin-rpc/client/cmd"
 
 func main() {
 	cmd.Execute()

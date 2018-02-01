@@ -10,8 +10,8 @@ import (
 	//"google.golang.org/grpc/metadata"
 	authzv1 "k8s.io/api/authorization/v1"
 
-	pb "github.com/eparis/remote-shell/api"
-	"github.com/eparis/remote-shell/operations/util"
+	pb "github.com/eparis/admin-rpc/api"
+	"github.com/eparis/admin-rpc/operations/util"
 )
 
 type argRegex []*regexp.Regexp

@@ -30,7 +30,7 @@ type serverConfig struct {
 
 var (
 	srvCfg = serverConfig{
-		cfgDir:      "/etc/remote-shell",
+		cfgDir:      "/etc/admin-rpc",
 		serviceName: "rpc.eparis.svc",
 	}
 

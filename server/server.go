@@ -10,32 +10,33 @@ import (
 	"path/filepath"
 	"strings"
 
-	pb "github.com/eparis/remote-shell/api"
 	"github.com/gorilla/mux"
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/auth"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	authnv1 "k8s.io/api/authentication/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	_ "net/http/pprof"
 
-	"github.com/eparis/remote-shell/operations/util"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/grpc-ecosystem/go-grpc-middleware/auth"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
 
+	pb "github.com/eparis/admin-rpc/api"
+	"github.com/eparis/admin-rpc/operations/util"
 	// All of the rpc operations we support
-	"github.com/eparis/remote-shell/operations/command"
+	"github.com/eparis/admin-rpc/operations/command"
 )
 
 var (
@@ -167,6 +168,8 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 	if err := registerAllOperations(grpcServer); err != nil {
 		return err
 	}
+	// Register reflection service on gRPC server.
+	reflection.Register(grpcServer)
 
 	// After all your registrations, make sure all of the Prometheus metrics are initialized.
 	grpc_prometheus.Register(grpcServer)
@@ -185,7 +188,7 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 		log.Fatal("RegisterRemoteCommandHandlerFromEndpoint: %v\n", err)
 	}
 
-	// This is the main router for the remote-shell
+	// This is the main router for the admin-rpc
 	router := mux.NewRouter()
 
 	// Send all grpc traffic to the grpc server

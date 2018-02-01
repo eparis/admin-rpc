@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	pb "github.com/eparis/remote-shell/api"
+	pb "github.com/eparis/admin-rpc/api"
 )
 
 type streamWriter struct {

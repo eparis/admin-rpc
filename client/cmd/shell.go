@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	pb "github.com/eparis/remote-shell/api"
+	pb "github.com/eparis/admin-rpc/api"
 	"github.com/kr/pretty"
 	"github.com/mattn/go-shellwords"
 	"github.com/spf13/cobra"

@@ -6,7 +6,7 @@ import (
 	"io"
 	"log"
 
-	pb "github.com/eparis/remote-shell/api"
+	pb "github.com/eparis/admin-rpc/api"
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
 )
