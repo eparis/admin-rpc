@@ -10,3 +10,6 @@ rules:
   - daemonsets
   verbs:
   - create
+  - patch
+  - update
+  - delete
