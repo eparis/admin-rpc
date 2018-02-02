@@ -153,7 +153,7 @@ func getClientset() (*rest.Config, *kubernetes.Clientset, error) {
 	return kubeConfig, clientset, nil
 }
 
-func GetGRPCClient(node string) (pb.RemoteCommandClient, context.Context, error) {
+func GetGRPCClientConn(node string) (*grpc.ClientConn, context.Context, error) {
 	kubeConfig, clientset, err := getClientset()
 	if err != nil {
 		return nil, nil, err
@@ -175,7 +175,6 @@ func GetGRPCClient(node string) (pb.RemoteCommandClient, context.Context, error)
 	if err = ForwardToPod(kubeConfig, pod); err != nil {
 		return nil, nil, fmt.Errorf("Unable to forward to target pod: %v\n", err)
 	}
-
 	creds, err := credentials.NewClientTLSFromFile("certs/CA.crt", "rpc.eparis.svc")
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to create TLS credentials %v", err)
@@ -188,11 +187,21 @@ func GetGRPCClient(node string) (pb.RemoteCommandClient, context.Context, error)
 		return nil, nil, fmt.Errorf("Could not connect: %v", err)
 	}
 
-	// Create the client
-	c := pb.NewRemoteCommandClient(conn)
-
 	ctx := context.Background()
 	ctx = attachToken(ctx, token)
+
+	return conn, ctx, nil
+
+}
+
+func GetGRPCClient(node string) (pb.RemoteCommandClient, context.Context, error) {
+	conn, ctx, err := GetGRPCClientConn(node)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Create the client
+	c := pb.NewRemoteCommandClient(conn)
 
 	return c, ctx, nil
 }
