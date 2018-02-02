@@ -10,7 +10,7 @@ import (
 	//"google.golang.org/grpc/metadata"
 	authzv1 "k8s.io/api/authorization/v1"
 
-	pb "github.com/eparis/admin-rpc/api"
+	rpcapi "github.com/eparis/admin-rpc/api"
 	"github.com/eparis/admin-rpc/operations/util"
 )
 
@@ -28,14 +28,14 @@ func (a argRegex) valid(val string) bool {
 	return false
 }
 
-type CommandAuth struct {
+type ExecAuth struct {
 	Namespace string `json:"namespace" yaml:"namespace"`
 	Verb      string `json:"verb" yaml:"verb"`
 	Resource  string `json:"resource" yaml:"resource"`
 	Version   string `json:"version" yaml:"version"`
 }
-type Command struct {
-	Auth           CommandAuth         `json:"auth" yaml:"auth"`
+type Exec struct {
+	Auth           ExecAuth            `json:"auth" yaml:"auth"`
 	CmdName        string              `json:"cmdName" yaml:"cmdName"`
 	Required       []string            `json:"requiredFlags,omitempty" yaml:"requiredFlags,omitempty"`
 	PermittedShort []string            `json:"permittedShortFlags,omitempty" yaml:"permittedShortFlags,omitempty"`
@@ -57,25 +57,25 @@ func stringsToRe(in []string) (argRegex, error) {
 	return regs, nil
 }
 
-func (cmd *Command) buildRegex() error {
-	cmd.permittedLong = map[string]argRegex{}
-	for flag, vals := range cmd.PermittedLong {
+func (exec *Exec) buildRegex() error {
+	exec.permittedLong = map[string]argRegex{}
+	for flag, vals := range exec.PermittedLong {
 		regs, err := stringsToRe(vals)
 		if err != nil {
 			return err
 		}
-		cmd.permittedLong[flag] = regs
+		exec.permittedLong[flag] = regs
 	}
-	regs, err := stringsToRe(cmd.PermittedNoun)
+	regs, err := stringsToRe(exec.PermittedNoun)
 	if err != nil {
 		return err
 	}
-	cmd.permittedNoun = regs
+	exec.permittedNoun = regs
 	return nil
 }
 
 // authz checks if the requestor has permission to run the command in question
-func (cmd *Command) authz(ctx context.Context) error {
+func (exec *Exec) authz(ctx context.Context) error {
 	tokenInfo := util.GetToken(ctx)
 	clientset := util.GetClientset(ctx)
 
@@ -93,10 +93,10 @@ func (cmd *Command) authz(ctx context.Context) error {
 			UID:    tokenInfo.Status.User.UID,
 			Extra:  authzExtras,
 			ResourceAttributes: &authzv1.ResourceAttributes{
-				Namespace: cmd.Auth.Namespace,
-				Verb:      cmd.Auth.Verb,
-				Resource:  cmd.Auth.Resource,
-				Version:   cmd.Auth.Version,
+				Namespace: exec.Auth.Namespace,
+				Verb:      exec.Auth.Verb,
+				Resource:  exec.Auth.Resource,
+				Version:   exec.Auth.Version,
 			},
 		},
 	}
@@ -107,22 +107,22 @@ func (cmd *Command) authz(ctx context.Context) error {
 	}
 
 	if !sar.Status.Allowed {
-		return fmt.Errorf("user: %q is not allowed to %q %q in the %q namespace. Refusing", tokenInfo.Status.User.Username, cmd.Auth.Verb, cmd.Auth.Resource, cmd.Auth.Namespace)
+		return fmt.Errorf("user: %q is not allowed to %q %q in the %q namespace. Refusing", tokenInfo.Status.User.Username, exec.Auth.Verb, exec.Auth.Resource, exec.Auth.Namespace)
 	}
 
 	return nil
 }
 
-// Server is used to implement the RemoteCommandServer
+// Server is used to implement the RemoteExecServer
 type sndCmd struct {
-	commands map[string][]Command
+	commands map[string][]Exec
 }
 
-// return the Command and a bool indicating if it was found
-func (s *sndCmd) getCommand(cmdName string, cmdArgs []string, ctx context.Context) (Command, error) {
+// return the Exec and a bool indicating if it was found
+func (s *sndCmd) getExec(cmdName string, cmdArgs []string, ctx context.Context) (Exec, error) {
 	commands, ok := s.commands[cmdName]
 	if !ok {
-		return Command{}, fmt.Errorf("Command not found: %s", cmdName)
+		return Exec{}, fmt.Errorf("Command not found: %s", cmdName)
 	}
 	var firstAuthErr error
 	var err error
@@ -145,12 +145,12 @@ func (s *sndCmd) getCommand(cmdName string, cmdArgs []string, ctx context.Contex
 	if firstAuthErr != nil {
 		err = firstAuthErr
 	}
-	return Command{}, err
+	return Exec{}, err
 }
 
-// SendCommand receives the command from the client and then executes it server-side.
+// SendExec receives the command from the client and then executes it server-side.
 // It returns a commmand reply consisting of the output of the command.
-func (s *sndCmd) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_SendCommandServer) error {
+func (s *sndCmd) SendExec(in *rpcapi.ExecRequest, stream rpcapi.Exec_SendExecServer) error {
 	var cmdName = in.CmdName
 	var cmdArgs = in.CmdArgs
 
@@ -160,14 +160,7 @@ func (s *sndCmd) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_Send
 	cmdArgsString := fmt.Sprintf("%#v", cmdArgs)
 	util.AddAuditData(ctx, "command.args", cmdArgsString)
 
-	/*
-	   md, ok := metadata.FromIncomingContext(stream.Context())
-	   if !ok {
-	           return fmt.Errorf("Unable to get metadata from stream")
-	   }
-	   pretty.Println(md)
-	*/
-	_, err := s.getCommand(cmdName, cmdArgs, ctx)
+	_, err := s.getExec(cmdName, cmdArgs, ctx)
 	if err != nil {
 		return err
 	}
@@ -175,24 +168,24 @@ func (s *sndCmd) SendCommand(in *pb.CommandRequest, stream pb.RemoteCommand_Send
 	return util.ExecuteCmdInitNS(cmdName, cmdArgs, stream)
 }
 
-func initCommandConfig(in interface{}) error {
-	cmd, ok := in.(*Command)
+func initExecConfig(in interface{}) error {
+	exec, ok := in.(*Exec)
 	if !ok {
-		return fmt.Errorf("initCommandConfig called on something other than a Command!\n")
+		return fmt.Errorf("initExecConfig called on something other than an Exec!\n")
 	}
-	if err := cmd.buildRegex(); err != nil {
+	if err := exec.buildRegex(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func NewSendCommand(cfgDir string) (*sndCmd, error) {
+func NewExec(cfgDir string) (*sndCmd, error) {
 	newCmd := &sndCmd{
-		commands: map[string][]Command{},
+		commands: map[string][]Exec{},
 	}
 	cfgDir = filepath.Join(cfgDir, "command")
-	var commandConfigs []Command
-	err := util.LoadConfig(cfgDir, initCommandConfig, &commandConfigs)
+	var commandConfigs []Exec
+	err := util.LoadConfig(cfgDir, initExecConfig, &commandConfigs)
 	if err != nil {
 		return nil, err
 	}

@@ -8,10 +8,11 @@ import (
 	"os"
 	"strings"
 
-	pb "github.com/eparis/admin-rpc/api"
 	"github.com/kr/pretty"
 	"github.com/mattn/go-shellwords"
 	"github.com/spf13/cobra"
+
+	rpcapi "github.com/eparis/admin-rpc/api"
 )
 
 var (
@@ -65,13 +66,13 @@ func doShell(cmd *cobra.Command, args []string) error {
 		}
 
 		// Gets the response of the shell comm and from the server.
-		req := &pb.CommandRequest{
+		req := &rpcapi.ExecRequest{
 			CmdName: cmdName,
 			CmdArgs: cmdArgs,
 		}
-		stream, err := client.SendCommand(ctx, req)
+		stream, err := client.SendExec(ctx, req)
 		if err != nil {
-			fmt.Printf("Command failed: %v\n", err)
+			fmt.Printf("Exec failed: %v\n", err)
 			continue
 		}
 
@@ -81,7 +82,7 @@ func doShell(cmd *cobra.Command, args []string) error {
 				if err == io.EOF {
 					break
 				}
-				fmt.Printf("Command failed: %v\n", err)
+				fmt.Printf("Exec failed: %v\n", err)
 				break
 			}
 			fmt.Printf("%s", res.Output)

@@ -33,7 +33,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 
-	pb "github.com/eparis/admin-rpc/api"
+	rpcapi "github.com/eparis/admin-rpc/api"
 	"github.com/eparis/admin-rpc/operations/util"
 	// All of the rpc operations we support
 	"github.com/eparis/admin-rpc/operations/command"
@@ -93,11 +93,11 @@ func attachAuthnData(ctx context.Context) (context.Context, error) {
 
 // Register all of the operations which are defined with the server
 func registerAllOperations(grpcServer *grpc.Server) error {
-	sndCmd, err := command.NewSendCommand(srvCfg.cfgDir)
+	sndCmd, err := command.NewExec(srvCfg.cfgDir)
 	if err != nil {
 		return err
 	}
-	pb.RegisterRemoteCommandServer(grpcServer, sndCmd)
+	rpcapi.RegisterExecServer(grpcServer, sndCmd)
 
 	return nil
 }
@@ -183,9 +183,9 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 		grpc.WithTransportCredentials(dcreds),
 	}
 	gwmux := runtime.NewServeMux()
-	err = pb.RegisterRemoteCommandHandlerFromEndpoint(ctx, gwmux, localAddr, dopts)
+	err = rpcapi.RegisterExecHandlerFromEndpoint(ctx, gwmux, localAddr, dopts)
 	if err != nil {
-		log.Fatal("RegisterRemoteCommandHandlerFromEndpoint: %v\n", err)
+		log.Fatal("RegisterExecHandlerFromEndpoint: %v\n", err)
 	}
 
 	// This is the main router for the admin-rpc

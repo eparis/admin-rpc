@@ -15,15 +15,15 @@
     "application/json"
   ],
   "paths": {
-    "/v1/command": {
+    "/v1/exec": {
       "post": {
         "summary": "Send a single command to be executed",
-        "operationId": "SendCommand",
+        "operationId": "SendExec",
         "responses": {
           "200": {
             "description": "(streaming responses)",
             "schema": {
-              "$ref": "#/definitions/accessrpcCommandReply"
+              "$ref": "#/definitions/adminExecReply"
             }
           }
         },
@@ -33,18 +33,18 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/accessrpcCommandRequest"
+              "$ref": "#/definitions/adminExecRequest"
             }
           }
         ],
         "tags": [
-          "RemoteCommand"
+          "Exec"
         ]
       }
     }
   },
   "definitions": {
-    "accessrpcCommandReply": {
+    "adminExecReply": {
       "type": "object",
       "properties": {
         "output": {
@@ -54,7 +54,7 @@
       },
       "title": "Response message"
     },
-    "accessrpcCommandRequest": {
+    "adminExecRequest": {
       "type": "object",
       "properties": {
         "cmdName": {

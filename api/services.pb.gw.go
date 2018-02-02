@@ -2,11 +2,11 @@
 // source: api/services.proto
 
 /*
-Package accessrpc is a reverse proxy.
+Package admin is a reverse proxy.
 
 It translates gRPC into RESTful JSON APIs.
 */
-package accessrpc
+package admin
 
 import (
 	"io"
@@ -28,15 +28,15 @@ var _ status.Status
 var _ = runtime.String
 var _ = utilities.NewDoubleArray
 
-func request_RemoteCommand_SendCommand_0(ctx context.Context, marshaler runtime.Marshaler, client RemoteCommandClient, req *http.Request, pathParams map[string]string) (RemoteCommand_SendCommandClient, runtime.ServerMetadata, error) {
-	var protoReq CommandRequest
+func request_Exec_SendExec_0(ctx context.Context, marshaler runtime.Marshaler, client ExecClient, req *http.Request, pathParams map[string]string) (Exec_SendExecClient, runtime.ServerMetadata, error) {
+	var protoReq ExecRequest
 	var metadata runtime.ServerMetadata
 
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	stream, err := client.SendCommand(ctx, &protoReq)
+	stream, err := client.SendExec(ctx, &protoReq)
 	if err != nil {
 		return nil, metadata, err
 	}
@@ -49,9 +49,9 @@ func request_RemoteCommand_SendCommand_0(ctx context.Context, marshaler runtime.
 
 }
 
-// RegisterRemoteCommandHandlerFromEndpoint is same as RegisterRemoteCommandHandler but
+// RegisterExecHandlerFromEndpoint is same as RegisterExecHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterRemoteCommandHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterExecHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
@@ -71,23 +71,23 @@ func RegisterRemoteCommandHandlerFromEndpoint(ctx context.Context, mux *runtime.
 		}()
 	}()
 
-	return RegisterRemoteCommandHandler(ctx, mux, conn)
+	return RegisterExecHandler(ctx, mux, conn)
 }
 
-// RegisterRemoteCommandHandler registers the http handlers for service RemoteCommand to "mux".
+// RegisterExecHandler registers the http handlers for service Exec to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterRemoteCommandHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterRemoteCommandHandlerClient(ctx, mux, NewRemoteCommandClient(conn))
+func RegisterExecHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterExecHandlerClient(ctx, mux, NewExecClient(conn))
 }
 
-// RegisterRemoteCommandHandler registers the http handlers for service RemoteCommand to "mux".
-// The handlers forward requests to the grpc endpoint over the given implementation of "RemoteCommandClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "RemoteCommandClient"
+// RegisterExecHandler registers the http handlers for service Exec to "mux".
+// The handlers forward requests to the grpc endpoint over the given implementation of "ExecClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "ExecClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "RemoteCommandClient" to call the correct interceptors.
-func RegisterRemoteCommandHandlerClient(ctx context.Context, mux *runtime.ServeMux, client RemoteCommandClient) error {
+// "ExecClient" to call the correct interceptors.
+func RegisterExecHandlerClient(ctx context.Context, mux *runtime.ServeMux, client ExecClient) error {
 
-	mux.Handle("POST", pattern_RemoteCommand_SendCommand_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_Exec_SendExec_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -105,14 +105,14 @@ func RegisterRemoteCommandHandlerClient(ctx context.Context, mux *runtime.ServeM
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_RemoteCommand_SendCommand_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_Exec_SendExec_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_RemoteCommand_SendCommand_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+		forward_Exec_SendExec_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -120,9 +120,9 @@ func RegisterRemoteCommandHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_RemoteCommand_SendCommand_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "command"}, ""))
+	pattern_Exec_SendExec_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "exec"}, ""))
 )
 
 var (
-	forward_RemoteCommand_SendCommand_0 = runtime.ForwardResponseStream
+	forward_Exec_SendExec_0 = runtime.ForwardResponseStream
 )

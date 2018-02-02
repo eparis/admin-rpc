@@ -6,15 +6,15 @@ import (
 	"os"
 	"os/exec"
 
-	pb "github.com/eparis/admin-rpc/api"
+	rpcapi "github.com/eparis/admin-rpc/api"
 )
 
 type streamWriter struct {
-	stream pb.RemoteCommand_SendCommandServer
+	stream rpcapi.Exec_SendExecServer
 }
 
 func (sw streamWriter) Write(p []byte) (int, error) {
-	cr := &pb.CommandReply{
+	cr := &rpcapi.ExecReply{
 		Output: p,
 	}
 	if err := sw.stream.Send(cr); err != nil {
@@ -104,7 +104,7 @@ func (n Namespaces) args() []string {
 	return args
 }
 
-func ExecuteCmdNamespace(cmdName string, args []string, ns Namespaces, stream pb.RemoteCommand_SendCommandServer) error {
+func ExecuteCmdNamespace(cmdName string, args []string, ns Namespaces, stream rpcapi.Exec_SendExecServer) error {
 	outPipe, pw, err := os.Pipe()
 	if err != nil {
 		return err
@@ -170,10 +170,10 @@ func ExecuteCmdNamespace(cmdName string, args []string, ns Namespaces, stream pb
 	return nil
 }
 
-func ExecuteCmdSelfNS(cmdName string, args []string, stream pb.RemoteCommand_SendCommandServer) error {
+func ExecuteCmdSelfNS(cmdName string, args []string, stream rpcapi.Exec_SendExecServer) error {
 	return ExecuteCmdNamespace(cmdName, args, selfNamespace, stream)
 }
 
-func ExecuteCmdInitNS(cmdName string, args []string, stream pb.RemoteCommand_SendCommandServer) error {
+func ExecuteCmdInitNS(cmdName string, args []string, stream rpcapi.Exec_SendExecServer) error {
 	return ExecuteCmdNamespace(cmdName, args, initNamespace, stream)
 }

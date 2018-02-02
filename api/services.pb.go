@@ -2,16 +2,16 @@
 // source: api/services.proto
 
 /*
-Package accessrpc is a generated protocol buffer package.
+Package admin is a generated protocol buffer package.
 
 It is generated from these files:
 	api/services.proto
 
 It has these top-level messages:
-	CommandRequest
-	CommandReply
+	ExecRequest
+	ExecReply
 */
-package accessrpc
+package admin
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
@@ -35,24 +35,24 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 // Request message
-type CommandRequest struct {
+type ExecRequest struct {
 	CmdName string   `protobuf:"bytes,1,opt,name=cmdName" json:"cmdName,omitempty"`
 	CmdArgs []string `protobuf:"bytes,2,rep,name=cmdArgs" json:"cmdArgs,omitempty"`
 }
 
-func (m *CommandRequest) Reset()                    { *m = CommandRequest{} }
-func (m *CommandRequest) String() string            { return proto.CompactTextString(m) }
-func (*CommandRequest) ProtoMessage()               {}
-func (*CommandRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (m *ExecRequest) Reset()                    { *m = ExecRequest{} }
+func (m *ExecRequest) String() string            { return proto.CompactTextString(m) }
+func (*ExecRequest) ProtoMessage()               {}
+func (*ExecRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-func (m *CommandRequest) GetCmdName() string {
+func (m *ExecRequest) GetCmdName() string {
 	if m != nil {
 		return m.CmdName
 	}
 	return ""
 }
 
-func (m *CommandRequest) GetCmdArgs() []string {
+func (m *ExecRequest) GetCmdArgs() []string {
 	if m != nil {
 		return m.CmdArgs
 	}
@@ -60,16 +60,16 @@ func (m *CommandRequest) GetCmdArgs() []string {
 }
 
 // Response message
-type CommandReply struct {
+type ExecReply struct {
 	Output []byte `protobuf:"bytes,1,opt,name=output,proto3" json:"output,omitempty"`
 }
 
-func (m *CommandReply) Reset()                    { *m = CommandReply{} }
-func (m *CommandReply) String() string            { return proto.CompactTextString(m) }
-func (*CommandReply) ProtoMessage()               {}
-func (*CommandReply) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (m *ExecReply) Reset()                    { *m = ExecReply{} }
+func (m *ExecReply) String() string            { return proto.CompactTextString(m) }
+func (*ExecReply) ProtoMessage()               {}
+func (*ExecReply) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
-func (m *CommandReply) GetOutput() []byte {
+func (m *ExecReply) GetOutput() []byte {
 	if m != nil {
 		return m.Output
 	}
@@ -77,8 +77,8 @@ func (m *CommandReply) GetOutput() []byte {
 }
 
 func init() {
-	proto.RegisterType((*CommandRequest)(nil), "accessrpc.CommandRequest")
-	proto.RegisterType((*CommandReply)(nil), "accessrpc.CommandReply")
+	proto.RegisterType((*ExecRequest)(nil), "admin.ExecRequest")
+	proto.RegisterType((*ExecReply)(nil), "admin.ExecReply")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -89,27 +89,27 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for RemoteCommand service
+// Client API for Exec service
 
-type RemoteCommandClient interface {
+type ExecClient interface {
 	// Send a single command to be executed
-	SendCommand(ctx context.Context, in *CommandRequest, opts ...grpc.CallOption) (RemoteCommand_SendCommandClient, error)
+	SendExec(ctx context.Context, in *ExecRequest, opts ...grpc.CallOption) (Exec_SendExecClient, error)
 }
 
-type remoteCommandClient struct {
+type execClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewRemoteCommandClient(cc *grpc.ClientConn) RemoteCommandClient {
-	return &remoteCommandClient{cc}
+func NewExecClient(cc *grpc.ClientConn) ExecClient {
+	return &execClient{cc}
 }
 
-func (c *remoteCommandClient) SendCommand(ctx context.Context, in *CommandRequest, opts ...grpc.CallOption) (RemoteCommand_SendCommandClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_RemoteCommand_serviceDesc.Streams[0], c.cc, "/accessrpc.RemoteCommand/SendCommand", opts...)
+func (c *execClient) SendExec(ctx context.Context, in *ExecRequest, opts ...grpc.CallOption) (Exec_SendExecClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_Exec_serviceDesc.Streams[0], c.cc, "/admin.Exec/SendExec", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &remoteCommandSendCommandClient{stream}
+	x := &execSendExecClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -119,63 +119,63 @@ func (c *remoteCommandClient) SendCommand(ctx context.Context, in *CommandReques
 	return x, nil
 }
 
-type RemoteCommand_SendCommandClient interface {
-	Recv() (*CommandReply, error)
+type Exec_SendExecClient interface {
+	Recv() (*ExecReply, error)
 	grpc.ClientStream
 }
 
-type remoteCommandSendCommandClient struct {
+type execSendExecClient struct {
 	grpc.ClientStream
 }
 
-func (x *remoteCommandSendCommandClient) Recv() (*CommandReply, error) {
-	m := new(CommandReply)
+func (x *execSendExecClient) Recv() (*ExecReply, error) {
+	m := new(ExecReply)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-// Server API for RemoteCommand service
+// Server API for Exec service
 
-type RemoteCommandServer interface {
+type ExecServer interface {
 	// Send a single command to be executed
-	SendCommand(*CommandRequest, RemoteCommand_SendCommandServer) error
+	SendExec(*ExecRequest, Exec_SendExecServer) error
 }
 
-func RegisterRemoteCommandServer(s *grpc.Server, srv RemoteCommandServer) {
-	s.RegisterService(&_RemoteCommand_serviceDesc, srv)
+func RegisterExecServer(s *grpc.Server, srv ExecServer) {
+	s.RegisterService(&_Exec_serviceDesc, srv)
 }
 
-func _RemoteCommand_SendCommand_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(CommandRequest)
+func _Exec_SendExec_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ExecRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(RemoteCommandServer).SendCommand(m, &remoteCommandSendCommandServer{stream})
+	return srv.(ExecServer).SendExec(m, &execSendExecServer{stream})
 }
 
-type RemoteCommand_SendCommandServer interface {
-	Send(*CommandReply) error
+type Exec_SendExecServer interface {
+	Send(*ExecReply) error
 	grpc.ServerStream
 }
 
-type remoteCommandSendCommandServer struct {
+type execSendExecServer struct {
 	grpc.ServerStream
 }
 
-func (x *remoteCommandSendCommandServer) Send(m *CommandReply) error {
+func (x *execSendExecServer) Send(m *ExecReply) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-var _RemoteCommand_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "accessrpc.RemoteCommand",
-	HandlerType: (*RemoteCommandServer)(nil),
+var _Exec_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "admin.Exec",
+	HandlerType: (*ExecServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "SendCommand",
-			Handler:       _RemoteCommand_SendCommand_Handler,
+			StreamName:    "SendExec",
+			Handler:       _Exec_SendExec_Handler,
 			ServerStreams: true,
 		},
 	},
@@ -185,19 +185,18 @@ var _RemoteCommand_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("api/services.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 218 bytes of a gzipped FileDescriptorProto
+	// 206 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x4a, 0x2c, 0xc8, 0xd4,
-	0x2f, 0x4e, 0x2d, 0x2a, 0xcb, 0x4c, 0x4e, 0x2d, 0xd6, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2,
-	0x4c, 0x4c, 0x4e, 0x4e, 0x2d, 0x2e, 0x2e, 0x2a, 0x48, 0x96, 0x92, 0x49, 0xcf, 0xcf, 0x4f, 0xcf,
-	0x49, 0xd5, 0x07, 0xa9, 0x4a, 0xcc, 0xcb, 0xcb, 0x2f, 0x49, 0x2c, 0xc9, 0xcc, 0xcf, 0x83, 0x2a,
-	0x54, 0x72, 0xe1, 0xe2, 0x73, 0xce, 0xcf, 0xcd, 0x4d, 0xcc, 0x4b, 0x09, 0x4a, 0x2d, 0x2c, 0x4d,
-	0x2d, 0x2e, 0x11, 0x92, 0xe0, 0x62, 0x4f, 0xce, 0x4d, 0xf1, 0x4b, 0xcc, 0x4d, 0x95, 0x60, 0x54,
-	0x60, 0xd4, 0xe0, 0x0c, 0x82, 0x71, 0xa1, 0x32, 0x8e, 0x45, 0xe9, 0xc5, 0x12, 0x4c, 0x0a, 0xcc,
-	0x50, 0x19, 0x10, 0x57, 0x49, 0x8d, 0x8b, 0x07, 0x6e, 0x4a, 0x41, 0x4e, 0xa5, 0x90, 0x18, 0x17,
-	0x5b, 0x7e, 0x69, 0x49, 0x41, 0x69, 0x09, 0xd8, 0x08, 0x9e, 0x20, 0x28, 0xcf, 0x28, 0x87, 0x8b,
-	0x37, 0x28, 0x35, 0x37, 0xbf, 0x24, 0x15, 0xaa, 0x5a, 0x28, 0x9a, 0x8b, 0x3b, 0x38, 0x35, 0x2f,
-	0x05, 0xc6, 0x95, 0xd4, 0x83, 0xbb, 0x5b, 0x0f, 0xd5, 0x59, 0x52, 0xe2, 0xd8, 0xa4, 0x0a, 0x72,
-	0x2a, 0x95, 0xc4, 0x9a, 0x2e, 0x3f, 0x99, 0xcc, 0x24, 0xa0, 0xc4, 0xad, 0x5f, 0x66, 0xa8, 0x9f,
-	0x0c, 0x91, 0xb1, 0x62, 0xd4, 0x32, 0x60, 0x4c, 0x62, 0x03, 0x7b, 0xd1, 0x18, 0x10, 0x00, 0x00,
-	0xff, 0xff, 0x72, 0x22, 0xd0, 0x00, 0x21, 0x01, 0x00, 0x00,
+	0x2f, 0x4e, 0x2d, 0x2a, 0xcb, 0x4c, 0x4e, 0x2d, 0xd6, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62,
+	0x4d, 0x4c, 0xc9, 0xcd, 0xcc, 0x93, 0x92, 0x49, 0xcf, 0xcf, 0x4f, 0xcf, 0x49, 0xd5, 0x07, 0xa9,
+	0x48, 0xcc, 0xcb, 0xcb, 0x2f, 0x49, 0x2c, 0xc9, 0xcc, 0xcf, 0x83, 0x2a, 0x52, 0x72, 0xe4, 0xe2,
+	0x76, 0xad, 0x48, 0x4d, 0x0e, 0x4a, 0x2d, 0x2c, 0x4d, 0x2d, 0x2e, 0x11, 0x92, 0xe0, 0x62, 0x4f,
+	0xce, 0x4d, 0xf1, 0x4b, 0xcc, 0x4d, 0x95, 0x60, 0x54, 0x60, 0xd4, 0xe0, 0x0c, 0x82, 0x71, 0xa1,
+	0x32, 0x8e, 0x45, 0xe9, 0xc5, 0x12, 0x4c, 0x0a, 0xcc, 0x50, 0x19, 0x10, 0x57, 0x49, 0x99, 0x8b,
+	0x13, 0x62, 0x44, 0x41, 0x4e, 0xa5, 0x90, 0x18, 0x17, 0x5b, 0x7e, 0x69, 0x49, 0x41, 0x69, 0x09,
+	0x58, 0x3f, 0x4f, 0x10, 0x94, 0x67, 0xe4, 0xcf, 0xc5, 0x02, 0x52, 0x24, 0xe4, 0xce, 0xc5, 0x11,
+	0x9c, 0x9a, 0x97, 0x02, 0x66, 0x0b, 0xe9, 0x81, 0x5d, 0xa8, 0x87, 0xe4, 0x00, 0x29, 0x01, 0x14,
+	0xb1, 0x82, 0x9c, 0x4a, 0x25, 0xe1, 0xa6, 0xcb, 0x4f, 0x26, 0x33, 0xf1, 0x2a, 0x71, 0xe8, 0x97,
+	0x19, 0xea, 0xa7, 0x56, 0xa4, 0x26, 0x5b, 0x31, 0x6a, 0x19, 0x30, 0x26, 0xb1, 0x81, 0xdd, 0x6f,
+	0x0c, 0x08, 0x00, 0x00, 0xff, 0xff, 0xbf, 0x10, 0x76, 0xd1, 0xfa, 0x00, 0x00, 0x00,
 }

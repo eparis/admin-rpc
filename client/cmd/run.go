@@ -6,9 +6,10 @@ import (
 	"io"
 	"log"
 
-	pb "github.com/eparis/admin-rpc/api"
 	"github.com/kr/pretty"
 	"github.com/spf13/cobra"
+
+	rpcapi "github.com/eparis/admin-rpc/api"
 )
 
 var (
@@ -47,11 +48,11 @@ func doRun(cmd *cobra.Command, args []string) error {
 	args = args[1:]
 
 	// Gets the response of the shell comm and from the server.
-	req := &pb.CommandRequest{
+	req := &rpcapi.ExecRequest{
 		CmdName: cmdName,
 		CmdArgs: args,
 	}
-	stream, err := client.SendCommand(ctx, req)
+	stream, err := client.SendExec(ctx, req)
 	if err != nil {
 		log.Fatalf("Command failed: %v", err)
 	}

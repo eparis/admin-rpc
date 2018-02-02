@@ -6,13 +6,13 @@ import (
 )
 
 type parseOp struct {
-	cmd        *Command
+	exec       *Exec
 	foundFlags []string
 }
 
 func (po *parseOp) checkShort(flag string) error {
 	po.foundFlags = append(po.foundFlags, flag)
-	for _, short := range po.cmd.PermittedShort {
+	for _, short := range po.exec.PermittedShort {
 		if flag == short {
 			return nil
 		}
@@ -22,7 +22,7 @@ func (po *parseOp) checkShort(flag string) error {
 
 func (po *parseOp) checkLongVal(flag, value string) error {
 	po.foundFlags = append(po.foundFlags, flag)
-	regs, ok := po.cmd.permittedLong[flag]
+	regs, ok := po.exec.permittedLong[flag]
 	if !ok {
 		return fmt.Errorf("Long flag not permitted: --%s", flag)
 	}
@@ -36,14 +36,14 @@ func (po *parseOp) checkLongVal(flag, value string) error {
 }
 
 func (po *parseOp) checkNoun(noun string) error {
-	if po.cmd.permittedNoun.valid(noun) {
+	if po.exec.permittedNoun.valid(noun) {
 		return nil
 	}
 	return fmt.Errorf("Noun not permitted: %s", noun)
 }
 
 func (po *parseOp) checkRequiredFlags() error {
-	for _, reqFlag := range po.cmd.Required {
+	for _, reqFlag := range po.exec.Required {
 		found := false
 		for _, foundFlag := range po.foundFlags {
 			if foundFlag == reqFlag {
@@ -116,9 +116,9 @@ func (po *parseOp) parseShortArgs(s string) error {
 	return nil
 }
 
-func (cmd *Command) valid(cmdName string, cmdArgs []string) error {
+func (exec *Exec) valid(cmdName string, cmdArgs []string) error {
 	po := parseOp{
-		cmd:        cmd,
+		exec:       exec,
 		foundFlags: []string{},
 	}
 	var err error

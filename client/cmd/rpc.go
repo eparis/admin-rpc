@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"sort"
 
-	pb "github.com/eparis/admin-rpc/api"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/kr/pretty"
 	"golang.org/x/net/context"
@@ -25,6 +24,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+
+	rpcapi "github.com/eparis/admin-rpc/api"
 )
 
 const (
@@ -194,14 +195,14 @@ func GetGRPCClientConn(node string) (*grpc.ClientConn, context.Context, error) {
 
 }
 
-func GetGRPCClient(node string) (pb.RemoteCommandClient, context.Context, error) {
+func GetGRPCClient(node string) (rpcapi.ExecClient, context.Context, error) {
 	conn, ctx, err := GetGRPCClientConn(node)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Create the client
-	c := pb.NewRemoteCommandClient(conn)
+	c := rpcapi.NewExecClient(conn)
 
 	return c, ctx, nil
 }

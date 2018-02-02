@@ -1,25 +1,25 @@
 syntax = "proto3";
-package accessrpc;
+package admin;
 
 import "google/api/annotations.proto";
 
-service RemoteCommand {
+service Exec {
   // Send a single command to be executed
-  rpc SendCommand (CommandRequest) returns (stream CommandReply) {
+  rpc SendExec (ExecRequest) returns (stream ExecReply) {
     option (google.api.http) = {
-      post: "/v1/command"
+      post: "/v1/exec"
       body: "*"
     };
   }
 }
 
 // Request message
-message CommandRequest {
+message ExecRequest {
   string cmdName = 1;
   repeated string cmdArgs = 2;
 }
 
 // Response message
-message CommandReply {
+message ExecReply {
   bytes output = 1;
 }
