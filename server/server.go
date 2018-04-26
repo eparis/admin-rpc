@@ -185,7 +185,7 @@ func mainFunc(cmd *cobra.Command, args []string) error {
 	gwmux := runtime.NewServeMux()
 	err = rpcapi.RegisterExecHandlerFromEndpoint(ctx, gwmux, localAddr, dopts)
 	if err != nil {
-		log.Fatal("RegisterExecHandlerFromEndpoint: %v\n", err)
+		log.Fatalf("RegisterExecHandlerFromEndpoint: %v\n", err)
 	}
 
 	// This is the main router for the admin-rpc
